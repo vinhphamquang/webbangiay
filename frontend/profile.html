@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hồ sơ của tôi - Adidas Shop</title>
+    <link rel="stylesheet" href="css/profile.css">
+</head>
+<body>
+    <!-- Header -->
+    <header>
+        <div class="container">
+            <div class="logo">
+                <h1>ADIDAS</h1>
+            </div>
+            <nav>
+                <ul>
+                    <li><a href="index.html">Trang chủ</a></li>
+                    <li><a href="profile.html" class="active">Hồ sơ</a></li>
+                    <li><a href="#" id="logoutBtn">Đăng xuất</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <div class="profile-container">
+        <div class="sidebar">
+            <div class="user-avatar">
+                <div class="avatar-circle">
+                    <span id="avatarInitial">U</span>
+                </div>
+                <h3 id="userName">Người dùng</h3>
+                <p id="userEmail">email@example.com</p>
+            </div>
+            <nav class="profile-nav">
+                <a href="#" class="nav-item active" data-tab="info">
+                    <span>👤</span> Thông tin cá nhân
+                </a>
+                <a href="#" class="nav-item" data-tab="orders">
+                    <span>📦</span> Đơn hàng của tôi
+                </a>
+                <a href="#" class="nav-item" data-tab="reviews">
+                    <span>⭐</span> Đánh giá của tôi
+                </a>
+                <a href="#" class="nav-item" data-tab="password">
+                    <span>🔒</span> Đổi mật khẩu
+                </a>
+            </nav>
+        </div>
+
+        <div class="main-content">
+            <!-- Thông tin cá nhân -->
+            <div id="info-tab" class="tab-content active">
+                <h2>Thông tin cá nhân</h2>
+                <div class="info-card">
+                    <div id="viewMode">
+                        <div class="info-row">
+                            <label>Họ tên:</label>
+                            <span id="displayName">-</span>
+                        </div>
+                        <div class="info-row">
+                            <label>Email:</label>
+                            <span id="displayEmail">-</span>
+                        </div>
+                        <div class="info-row">
+                            <label>Số điện thoại:</label>
+                            <span id="displayPhone">-</span>
+                        </div>
+                        <div class="info-row">
+                            <label>Địa chỉ:</label>
+                            <span id="displayAddress">-</span>
+                        </div>
+                        <button class="btn-primary" id="editBtn">Chỉnh sửa thông tin</button>
+                    </div>
+
+                    <div id="editMode" style="display: none;">
+                        <form id="profileForm">
+                            <div class="form-group">
+                                <label>Họ tên *</label>
+                                <input type="text" id="editName" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Email (không thể thay đổi)</label>
+                                <input type="email" id="editEmail" disabled>
+                            </div>
+                            <div class="form-group">
+                                <label>Số điện thoại</label>
+                                <input type="tel" id="editPhone">
+                            </div>
+                            <div class="form-group">
+                                <label>Địa chỉ</label>
+                                <textarea id="editAddress" rows="3"></textarea>
+                            </div>
+                            <div class="form-actions">
+                                <button type="submit" class="btn-primary">Lưu thay đổi</button>
+                                <button type="button" class="btn-secondary" id="cancelBtn">Hủy</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Đơn hàng -->
+            <div id="orders-tab" class="tab-content">
+                <h2>Đơn hàng của tôi</h2>
+                <div id="ordersList"></div>
+            </div>
+
+            <!-- Đánh giá -->
+            <div id="reviews-tab" class="tab-content">
+                <h2>Đánh giá của tôi</h2>
+                <div class="reviews-actions">
+                    <button class="btn-primary" id="addReviewBtn">+ Viết đánh giá mới</button>
+                </div>
+                <div id="reviewsList"></div>
+            </div>
+
+            <!-- Đổi mật khẩu -->
+            <div id="password-tab" class="tab-content">
+                <h2>Đổi mật khẩu</h2>
+                <div class="info-card">
+                    <form id="passwordForm">
+                        <div class="form-group">
+                            <label>Mật khẩu hiện tại *</label>
+                            <input type="password" id="currentPassword" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Mật khẩu mới *</label>
+                            <input type="password" id="newPassword" required minlength="6">
+                        </div>
+                        <div class="form-group">
+                            <label>Xác nhận mật khẩu mới *</label>
+                            <input type="password" id="confirmPassword" required minlength="6">
+                        </div>
+                        <button type="submit" class="btn-primary">Đổi mật khẩu</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for Order Detail -->
+    <div id="orderModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Chi tiết đơn hàng</h2>
+            <div id="orderDetail"></div>
+        </div>
+    </div>
+
+    <!-- Modal for Review -->
+    <div id="reviewModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Đánh giá sản phẩm</h2>
+            <div id="reviewProducts"></div>
+        </div>
+    </div>
+
+    <!-- Modal for Available Products to Review -->
+    <div id="availableReviewModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Chọn sản phẩm để đánh giá</h2>
+            <p class="modal-subtitle">Chỉ hiển thị sản phẩm từ đơn hàng đã hoàn thành</p>
+            <div id="availableProducts"></div>
+        </div>
+    </div>
+
+    <script src="js/profile.js"></script>
+</body>
+</html>

@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Quản lý Shop Giày Adidas</title>
+    <link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+    <div class="admin-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="logo">
+                <h2>ADIDAS ADMIN</h2>
+            </div>
+            <nav class="nav-menu">
+                <a href="#dashboard" class="nav-item active" data-page="dashboard">
+                    <span>📊</span> Dashboard
+                </a>
+                <a href="#categories" class="nav-item" data-page="categories">
+                    <span>📁</span> Danh mục
+                </a>
+                <a href="#products" class="nav-item" data-page="products">
+                    <span>👟</span> Sản phẩm
+                </a>
+                <a href="#customers" class="nav-item" data-page="customers">
+                    <span>👥</span> Khách hàng
+                </a>
+                <a href="#orders" class="nav-item" data-page="orders">
+                    <span>📦</span> Đơn hàng
+                </a>
+                <a href="#reviews" class="nav-item" data-page="reviews">
+                    <span>⭐</span> Đánh giá
+                </a>
+            </nav>
+            <div class="sidebar-footer">
+                <button id="logoutBtn" class="btn-logout">Đăng xuất</button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="header">
+                <h1 id="pageTitle">Dashboard</h1>
+                <div class="user-info">
+                    <span id="adminName">Admin</span>
+                </div>
+            </header>
+
+            <div class="content">
+                <!-- Dashboard Page -->
+                <div id="dashboard-page" class="page active">
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <h3>Tổng sản phẩm</h3>
+                            <p class="stat-value" id="totalProducts">0</p>
+                        </div>
+                        <div class="stat-card">
+                            <h3>Tổng đơn hàng</h3>
+                            <p class="stat-value" id="totalOrders">0</p>
+                        </div>
+                        <div class="stat-card">
+                            <h3>Tổng khách hàng</h3>
+                            <p class="stat-value" id="totalCustomers">0</p>
+                        </div>
+                        <div class="stat-card">
+                            <h3>Doanh thu</h3>
+                            <p class="stat-value" id="totalRevenue">0đ</p>
+                        </div>
+                    </div>
+
+                    <div class="dashboard-sections">
+                        <div class="section">
+                            <h3>Đơn hàng gần đây</h3>
+                            <div id="recentOrders"></div>
+                        </div>
+                        <div class="section">
+                            <h3>Sản phẩm bán chạy</h3>
+                            <div id="topProducts"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Categories Page -->
+                <div id="categories-page" class="page">
+                    <button class="btn-primary" id="addCategoryBtn">+ Thêm danh mục</button>
+                    <div id="categoriesList"></div>
+                </div>
+
+                <!-- Products Page -->
+                <div id="products-page" class="page">
+                    <button class="btn-primary" id="addProductBtn">+ Thêm sản phẩm</button>
+                    <div id="productsList"></div>
+                </div>
+
+                <!-- Customers Page -->
+                <div id="customers-page" class="page">
+                    <div id="customersList"></div>
+                </div>
+
+                <!-- Orders Page -->
+                <div id="orders-page" class="page">
+                    <div class="filters">
+                        <select id="orderStatusFilter">
+                            <option value="">Tất cả trạng thái</option>
+                            <option value="pending">Chờ xử lý</option>
+                            <option value="processing">Đang xử lý</option>
+                            <option value="completed">Hoàn thành</option>
+                            <option value="cancelled">Đã hủy</option>
+                        </select>
+                    </div>
+                    <div id="ordersList"></div>
+                </div>
+
+                <!-- Reviews Page -->
+                <div id="reviews-page" class="page">
+                    <div class="filters">
+                        <select id="reviewStatusFilter">
+                            <option value="">Tất cả trạng thái</option>
+                            <option value="pending">Chờ duyệt</option>
+                            <option value="approved">Đã duyệt</option>
+                            <option value="rejected">Từ chối</option>
+                        </select>
+                    </div>
+                    <div id="reviewsList"></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal for Category -->
+    <div id="categoryModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2 id="categoryModalTitle">Thêm danh mục</h2>
+            <form id="categoryForm">
+                <input type="hidden" id="categoryId">
+                <div class="form-group">
+                    <label>Tên danh mục *</label>
+                    <input type="text" id="categoryName" required>
+                </div>
+                <div class="form-group">
+                    <label>Mô tả</label>
+                    <textarea id="categoryDescription" rows="3"></textarea>
+                </div>
+                <button type="submit" class="btn-primary">Lưu</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal for Order Detail -->
+    <div id="orderModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Chi tiết đơn hàng</h2>
+            <div id="orderDetail"></div>
+        </div>
+    </div>
+
+    <script src="js/admin.js"></script>
+</body>
+</html>

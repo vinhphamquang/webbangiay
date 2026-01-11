@@ -1,0 +1,32 @@
+{
+  "name": "adidas-shop",
+  "version": "1.0.0",
+  "description": "Website bán giày Adidas với API RESTful",
+  "main": "api/server.js",
+  "scripts": {
+    "start": "node api/server.js",
+    "dev": "nodemon api/server.js",
+    "setup": "node database/setup.js",
+    "migrate": "node database/quick_migrate.js",
+    "hash-passwords": "node database/hash_passwords.js"
+  },
+  "keywords": [
+    "adidas",
+    "shop",
+    "api",
+    "rest"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^4.18.2",
+    "jsonwebtoken": "^9.0.3",
+    "mysql2": "^3.6.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}

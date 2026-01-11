@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Adidas Shop - Giày Chính Hãng</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <!-- Header -->
+    <header>
+        <div class="container">
+            <div class="logo">
+                <h1>ADIDAS</h1>
+            </div>
+            <nav>
+                <ul>
+                    <li><a href="#home">Trang chủ</a></li>
+                    <li><a href="#products">Sản phẩm</a></li>
+                    <li><a href="#cart">Giỏ hàng (<span id="cart-count">0</span>)</a></li>
+                    <li id="authNav">
+                        <a href="login.html" class="btn-login">Đăng nhập</a>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section id="home" class="hero">
+        <div class="hero-content">
+            <h2>Bộ Sưu Tập Giày Adidas 2026</h2>
+            <p>Phong cách thể thao, chất lượng đỉnh cao</p>
+            <button class="btn-primary" onclick="scrollToProducts()">Khám phá ngay</button>
+        </div>
+    </section>
+
+    <!-- Filter Section -->
+    <section class="filter-section">
+        <div class="container">
+            <input type="text" id="search-input" placeholder="Tìm kiếm sản phẩm...">
+            <select id="category-filter">
+                <option value="">Tất cả danh mục</option>
+                <option value="running">Giày chạy bộ</option>
+                <option value="football">Giày bóng đá</option>
+                <option value="lifestyle">Giày lifestyle</option>
+                <option value="basketball">Giày bóng rổ</option>
+            </select>
+            <select id="sort-filter">
+                <option value="">Sắp xếp</option>
+                <option value="price-asc">Giá tăng dần</option>
+                <option value="price-desc">Giá giảm dần</option>
+                <option value="name">Tên A-Z</option>
+            </select>
+        </div>
+    </section>
+
+    <!-- Products Section -->
+    <section id="products" class="products-section">
+        <div class="container">
+            <h2>Sản Phẩm Nổi Bật</h2>
+            <div id="products-grid" class="products-grid">
+                <div class="loading">Đang tải sản phẩm...</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Cart Section -->
+    <section id="cart" class="cart-section" style="display: none;">
+        <div class="container">
+            <h2>Giỏ Hàng Của Bạn</h2>
+            <div id="cart-items"></div>
+            <div class="cart-total">
+                <h3>Tổng cộng: <span id="total-price">0</span> VNĐ</h3>
+                <button class="btn-primary" onclick="checkout()">Thanh toán</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Admin Section -->
+    <section id="admin" class="admin-section" style="display: none;">
+        <div class="container">
+            <h2>Quản Lý Sản Phẩm</h2>
+            <div class="admin-form">
+                <h3 id="form-title">Thêm Sản Phẩm Mới</h3>
+                <form id="product-form">
+                    <input type="hidden" id="product-id">
+                    <input type="text" id="product-name" placeholder="Tên sản phẩm" required>
+                    <input type="number" id="product-price" placeholder="Giá" required>
+                    <select id="product-category" required>
+                        <option value="">Chọn danh mục</option>
+                        <option value="running">Giày chạy bộ</option>
+                        <option value="football">Giày bóng đá</option>
+                        <option value="lifestyle">Giày lifestyle</option>
+                        <option value="basketball">Giày bóng rổ</option>
+                    </select>
+                    <input type="text" id="product-image" placeholder="URL hình ảnh" required>
+                    <textarea id="product-description" placeholder="Mô tả sản phẩm" required></textarea>
+                    <input type="number" id="product-stock" placeholder="Số lượng" required>
+                    <div class="form-buttons">
+                        <button type="submit" class="btn-primary">Lưu</button>
+                        <button type="button" class="btn-secondary" onclick="resetForm()">Hủy</button>
+                    </div>
+                </form>
+            </div>
+            <div id="admin-products-list"></div>
+        </div>
+    </section>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2026 Adidas Shop. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script src="js/api.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

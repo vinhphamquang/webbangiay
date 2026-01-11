@@ -1,0 +1,194 @@
+/* ===== ADIDAS AUTH - BLACK & WHITE THEME ===== */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #000000;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.auth-container {
+    width: 100%;
+    max-width: 500px;
+    padding: 20px;
+}
+
+.auth-box {
+    background: white;
+    border: 3px solid #000000;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+}
+
+.logo {
+    background: #000;
+    color: white;
+    text-align: center;
+    padding: 40px 20px;
+    border-bottom: 3px solid #000;
+}
+
+.logo h1 {
+    font-size: 48px;
+    margin-bottom: 5px;
+    font-weight: 900;
+    letter-spacing: 4px;
+}
+
+.logo p {
+    font-size: 12px;
+    opacity: 0.8;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+.back-home {
+    text-align: center;
+    padding: 20px 40px;
+    border-bottom: 2px solid #e0e0e0;
+}
+
+.btn-back {
+    display: inline-block;
+    color: #000000;
+    text-decoration: none;
+    font-weight: 700;
+    padding: 10px 20px;
+    border: 2px solid #000000;
+    transition: all 0.3s;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-size: 12px;
+}
+
+.btn-back:hover {
+    background: #000000;
+    color: #ffffff;
+}
+
+.form-container {
+    display: none;
+    padding: 50px 40px;
+}
+
+.form-container.active {
+    display: block;
+}
+
+.form-container h2 {
+    margin-bottom: 40px;
+    color: #000;
+    text-align: center;
+    font-size: 32px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+.form-group {
+    margin-bottom: 25px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 10px;
+    color: #000;
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 11px;
+    letter-spacing: 1px;
+}
+
+.form-group input,
+.form-group textarea {
+    width: 100%;
+    padding: 14px 16px;
+    border: 2px solid #000000;
+    border-radius: 0;
+    font-size: 14px;
+    transition: all 0.3s;
+    font-weight: 500;
+}
+
+.form-group input:focus,
+.form-group textarea:focus {
+    outline: none;
+    background: #000000;
+    color: #ffffff;
+}
+
+.form-group input:focus::placeholder {
+    color: #999;
+}
+
+.btn-primary {
+    width: 100%;
+    padding: 16px;
+    background: #000;
+    color: white;
+    border: 2px solid #000;
+    border-radius: 0;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+.btn-primary:hover {
+    background: white;
+    color: #000;
+}
+
+.switch-form {
+    text-align: center;
+    margin-top: 30px;
+    color: #666;
+    font-size: 14px;
+}
+
+.switch-form a {
+    color: #000000;
+    text-decoration: none;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    border-bottom: 2px solid #000000;
+}
+
+.switch-form a:hover {
+    opacity: 0.7;
+}
+
+.error-message {
+    background: #000000;
+    color: #ffffff;
+    padding: 15px;
+    margin-bottom: 25px;
+    text-align: center;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 12px;
+    letter-spacing: 1px;
+}
+
+.success-message {
+    background: #000000;
+    color: #ffffff;
+    padding: 15px;
+    margin-bottom: 25px;
+    text-align: center;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 12px;
+    letter-spacing: 1px;
+}

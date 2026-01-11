@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chi tiết sản phẩm - Adidas Shop</title>
+    <link rel="stylesheet" href="css/product-detail.css">
+</head>
+<body>
+    <!-- Header -->
+    <header>
+        <div class="container">
+            <div class="logo">
+                <h1>ADIDAS</h1>
+            </div>
+            <nav>
+                <ul>
+                    <li><a href="index.html">Trang chủ</a></li>
+                    <li><a href="index.html#products">Sản phẩm</a></li>
+                    <li><a href="index.html#cart">Giỏ hàng (<span id="cart-count">0</span>)</a></li>
+                    <li id="authNav">
+                        <a href="login.html" class="btn-login">Đăng nhập</a>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Breadcrumb -->
+    <div class="breadcrumb">
+        <div class="container">
+            <a href="index.html">Trang chủ</a> / 
+            <a href="index.html#products">Sản phẩm</a> / 
+            <span id="breadcrumb-product">Chi tiết</span>
+        </div>
+    </div>
+
+    <!-- Product Detail -->
+    <section class="product-detail">
+        <div class="container">
+            <div class="product-grid">
+                <!-- Product Images -->
+                <div class="product-images">
+                    <div class="main-image">
+                        <img id="mainImage" src="" alt="Product">
+                    </div>
+                    <div class="image-thumbnails">
+                        <!-- Thumbnails will be added here -->
+                    </div>
+                </div>
+
+                <!-- Product Info -->
+                <div class="product-info">
+                    <h1 id="productName">Tên sản phẩm</h1>
+                    <div class="product-rating">
+                        <div class="stars" id="productRating">
+                            <span>⭐⭐⭐⭐⭐</span>
+                        </div>
+                        <span class="review-count" id="reviewCount">(0 đánh giá)</span>
+                    </div>
+                    
+                    <div class="product-price">
+                        <span class="price" id="productPrice">0đ</span>
+                    </div>
+
+                    <div class="product-description">
+                        <h3>Mô tả sản phẩm</h3>
+                        <p id="productDescription">Mô tả sản phẩm</p>
+                    </div>
+
+                    <div class="product-stock">
+                        <span>Tình trạng: </span>
+                        <span id="stockStatus" class="in-stock">Còn hàng</span>
+                        <span id="stockQuantity"></span>
+                    </div>
+
+                    <!-- Size Selection -->
+                    <div class="size-selection">
+                        <h3>Chọn kích cỡ <span class="required">*</span></h3>
+                        <div class="size-options" id="sizeOptions">
+                            <button class="size-btn" data-size="38">38</button>
+                            <button class="size-btn" data-size="39">39</button>
+                            <button class="size-btn" data-size="40">40</button>
+                            <button class="size-btn" data-size="41">41</button>
+                            <button class="size-btn" data-size="42">42</button>
+                            <button class="size-btn" data-size="43">43</button>
+                            <button class="size-btn" data-size="44">44</button>
+                            <button class="size-btn" data-size="45">45</button>
+                        </div>
+                        <p class="size-guide">
+                            <a href="#" id="sizeGuideBtn">📏 Hướng dẫn chọn size</a>
+                        </p>
+                    </div>
+
+                    <!-- Quantity Selection -->
+                    <div class="quantity-selection">
+                        <h3>Số lượng <span class="required">*</span></h3>
+                        <div class="quantity-controls">
+                            <button class="qty-btn" id="decreaseQty">-</button>
+                            <input type="number" id="quantity" value="1" min="1" max="10" readonly>
+                            <button class="qty-btn" id="increaseQty">+</button>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="product-actions">
+                        <button class="btn-add-cart" id="addToCartBtn">
+                            🛒 Thêm vào giỏ hàng
+                        </button>
+                        <button class="btn-buy-now" id="buyNowBtn">
+                            ⚡ Mua ngay
+                        </button>
+                    </div>
+
+                    <!-- Product Features -->
+                    <div class="product-features">
+                        <div class="feature-item">
+                            <span class="icon">✓</span>
+                            <span>Chính hãng 100%</span>
+                        </div>
+                        <div class="feature-item">
+                            <span class="icon">🚚</span>
+                            <span>Miễn phí vận chuyển</span>
+                        </div>
+                        <div class="feature-item">
+                            <span class="icon">↩️</span>
+                            <span>Đổi trả trong 30 ngày</span>
+                        </div>
+                        <div class="feature-item">
+                            <span class="icon">🎁</span>
+                            <span>Tích điểm thành viên</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Product Reviews -->
+            <div class="product-reviews">
+                <h2>Đánh giá sản phẩm</h2>
+                <div id="reviewsList">
+                    <p class="loading">Đang tải đánh giá...</p>
+                </div>
+            </div>
+
+            <!-- Related Products -->
+            <div class="related-products">
+                <h2>Sản phẩm liên quan</h2>
+                <div class="products-grid" id="relatedProducts">
+                    <!-- Related products will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Size Guide Modal -->
+    <div id="sizeGuideModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Hướng dẫn chọn size giày</h2>
+            <table class="size-table">
+                <thead>
+                    <tr>
+                        <th>Size EU</th>
+                        <th>Size US</th>
+                        <th>Chiều dài chân (cm)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td>38</td><td>6</td><td>24.0</td></tr>
+                    <tr><td>39</td><td>6.5</td><td>24.5</td></tr>
+                    <tr><td>40</td><td>7</td><td>25.0</td></tr>
+                    <tr><td>41</td><td>7.5</td><td>25.5</td></tr>
+                    <tr><td>42</td><td>8</td><td>26.0</td></tr>
+                    <tr><td>43</td><td>9</td><td>26.5</td></tr>
+                    <tr><td>44</td><td>9.5</td><td>27.0</td></tr>
+                    <tr><td>45</td><td>10</td><td>27.5</td></tr>
+                </tbody>
+            </table>
+            <div class="size-tips">
+                <h3>Mẹo chọn size:</h3>
+                <ul>
+                    <li>Đo chân vào buổi chiều khi chân hơi phồng lên</li>
+                    <li>Đo cả hai chân và chọn size theo chân lớn hơn</li>
+                    <li>Để khoảng trống 0.5-1cm ở phía trước ngón chân</li>
+                    <li>Nếu chân bạn rộng, nên chọn size lớn hơn 0.5</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Success Modal -->
+    <div id="successModal" class="modal">
+        <div class="modal-content success">
+            <span class="close">&times;</span>
+            <div class="success-icon">✓</div>
+            <h2>Thêm vào giỏ hàng thành công!</h2>
+            <p>Sản phẩm đã được thêm vào giỏ hàng của bạn</p>
+            <div class="modal-actions">
+                <button class="btn-secondary" onclick="closeSuccessModal()">Tiếp tục mua sắm</button>
+                <button class="btn-primary" onclick="goToCart()">Xem giỏ hàng</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/product-detail.js"></script>
+</body>
+</html>
