@@ -70,7 +70,8 @@ router.get('/cart', async (req, res) => {
                 image: row.image,
                 stock: row.stock
             },
-            quantity: row.quantity
+            quantity: row.quantity,
+            size: row.size || '42'
         }));
 
         const total = items.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
@@ -85,11 +86,13 @@ router.get('/cart', async (req, res) => {
 // POST /api/customer/cart - Thêm sản phẩm vào giỏ hàng
 router.post('/cart', async (req, res) => {
     try {
-        const { productId, quantity } = req.body;
+        const { productId, quantity, size } = req.body;
 
         if (!productId || !quantity || quantity < 1) {
             return res.status(400).json({ error: 'Thông tin không hợp lệ' });
         }
+
+        const selectedSize = size || '42';
 
         // Kiểm tra sản phẩm và tồn kho
         const [products] = await pool.query('SELECT * FROM products WHERE id = ?', [productId]);
@@ -102,10 +105,10 @@ router.post('/cart', async (req, res) => {
             return res.status(400).json({ error: 'Không đủ hàng trong kho' });
         }
 
-        // Kiểm tra sản phẩm đã có trong giỏ hàng chưa
+        // Kiểm tra sản phẩm với size đã có trong giỏ hàng chưa
         const [existing] = await pool.query(
-            'SELECT * FROM cart WHERE customer_id = ? AND product_id = ?',
-            [req.user.customerId, productId]
+            'SELECT * FROM cart WHERE customer_id = ? AND product_id = ? AND size = ?',
+            [req.user.customerId, productId, selectedSize]
         );
 
         if (existing.length > 0) {
@@ -115,13 +118,13 @@ router.post('/cart', async (req, res) => {
             }
             
             await pool.query(
-                'UPDATE cart SET quantity = ? WHERE customer_id = ? AND product_id = ?',
-                [newQuantity, req.user.customerId, productId]
+                'UPDATE cart SET quantity = ? WHERE customer_id = ? AND product_id = ? AND size = ?',
+                [newQuantity, req.user.customerId, productId, selectedSize]
             );
         } else {
             await pool.query(
-                'INSERT INTO cart (customer_id, product_id, quantity) VALUES (?, ?, ?)',
-                [req.user.customerId, productId, quantity]
+                'INSERT INTO cart (customer_id, product_id, quantity, size) VALUES (?, ?, ?, ?)',
+                [req.user.customerId, productId, quantity, selectedSize]
             );
         }
 
@@ -142,7 +145,8 @@ router.post('/cart', async (req, res) => {
                 image: row.image,
                 stock: row.stock
             },
-            quantity: row.quantity
+            quantity: row.quantity,
+            size: row.size || '42'
         }));
 
         const total = items.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
@@ -154,34 +158,45 @@ router.post('/cart', async (req, res) => {
     }
 });
 
-// PUT /api/customer/cart/:productId - Cập nhật số lượng
-router.put('/cart/:productId', async (req, res) => {
+// PUT /api/customer/cart/:id - Cập nhật số lượng và size
+router.put('/cart/:id', async (req, res) => {
     try {
-        const { quantity } = req.body;
+        const { quantity, size } = req.body;
 
-        if (!quantity || quantity < 1) {
+        if (quantity && quantity < 1) {
             return res.status(400).json({ error: 'Số lượng không hợp lệ' });
         }
 
+        // Lấy thông tin cart item hiện tại
+        const [cartItems] = await pool.query(
+            'SELECT * FROM cart WHERE id = ? AND customer_id = ?',
+            [req.params.id, req.user.customerId]
+        );
+
+        if (cartItems.length === 0) {
+            return res.status(404).json({ error: 'Không tìm thấy sản phẩm trong giỏ hàng' });
+        }
+
+        const cartItem = cartItems[0];
+
         // Kiểm tra tồn kho
-        const [products] = await pool.query('SELECT stock FROM products WHERE id = ?', [req.params.productId]);
+        const [products] = await pool.query('SELECT stock FROM products WHERE id = ?', [cartItem.product_id]);
         
         if (products.length === 0) {
             return res.status(404).json({ error: 'Không tìm thấy sản phẩm' });
         }
 
-        if (products[0].stock < quantity) {
+        const newQuantity = quantity || cartItem.quantity;
+        const newSize = size || cartItem.size;
+
+        if (products[0].stock < newQuantity) {
             return res.status(400).json({ error: 'Không đủ hàng trong kho' });
         }
 
-        const [result] = await pool.query(
-            'UPDATE cart SET quantity = ? WHERE customer_id = ? AND product_id = ?',
-            [quantity, req.user.customerId, req.params.productId]
+        await pool.query(
+            'UPDATE cart SET quantity = ?, size = ? WHERE id = ? AND customer_id = ?',
+            [newQuantity, newSize, req.params.id, req.user.customerId]
         );
-
-        if (result.affectedRows === 0) {
-            return res.status(404).json({ error: 'Không tìm thấy sản phẩm trong giỏ hàng' });
-        }
 
         // Trả về giỏ hàng đã cập nhật
         const [rows] = await pool.query(`
@@ -200,7 +215,8 @@ router.put('/cart/:productId', async (req, res) => {
                 image: row.image,
                 stock: row.stock
             },
-            quantity: row.quantity
+            quantity: row.quantity,
+            size: row.size || '42'
         }));
 
         const total = items.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
@@ -212,12 +228,12 @@ router.put('/cart/:productId', async (req, res) => {
     }
 });
 
-// DELETE /api/customer/cart/:productId - Xóa sản phẩm khỏi giỏ hàng
-router.delete('/cart/:productId', async (req, res) => {
+// DELETE /api/customer/cart/:id - Xóa sản phẩm khỏi giỏ hàng
+router.delete('/cart/:id', async (req, res) => {
     try {
         const [result] = await pool.query(
-            'DELETE FROM cart WHERE customer_id = ? AND product_id = ?',
-            [req.user.customerId, req.params.productId]
+            'DELETE FROM cart WHERE id = ? AND customer_id = ?',
+            [req.params.id, req.user.customerId]
         );
 
         if (result.affectedRows === 0) {
@@ -278,16 +294,11 @@ router.post('/orders', async (req, res) => {
 
         const orderId = orderResult.insertId;
 
-        // Thêm chi tiết đơn hàng và cập nhật tồn kho
+        // Thêm chi tiết đơn hàng (KHÔNG giảm kho ở đây)
         for (const item of cartItems) {
             await connection.query(
-                'INSERT INTO order_items (order_id, product_id, quantity, price) VALUES (?, ?, ?, ?)',
-                [orderId, item.product_id, item.quantity, item.price]
-            );
-
-            await connection.query(
-                'UPDATE products SET stock = stock - ? WHERE id = ?',
-                [item.quantity, item.product_id]
+                'INSERT INTO order_items (order_id, product_id, quantity, price, size) VALUES (?, ?, ?, ?, ?)',
+                [orderId, item.product_id, item.quantity, item.price, item.size || '42']
             );
         }
 

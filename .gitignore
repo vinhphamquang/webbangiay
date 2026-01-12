@@ -26,3 +26,7 @@ build/
 
 # Database
 *.sql.backup
+
+# Uploads
+frontend/uploads/*
+!frontend/uploads/.gitkeep

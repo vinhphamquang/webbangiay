@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Liên hệ - Adidas Shop</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        body { background: #f5f5f5; }
+        .page-content { max-width: 800px; margin: 100px auto 40px; padding: 20px; }
+        .white-box { background: white; padding: 50px; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); }
+        .page-title { text-align: center; margin-bottom: 15px; color: #000; font-size: 36px; font-weight: 700; }
+        .page-subtitle { text-align: center; color: #666; margin-bottom: 40px; font-size: 16px; }
+        .input-group { margin-bottom: 25px; }
+        .input-label { display: block; margin-bottom: 10px; font-weight: 600; color: #000; font-size: 15px; }
+        .input-field { width: 100%; padding: 15px; border: 2px solid #ddd; border-radius: 4px; font-size: 15px; font-family: inherit; background: white; color: #000; box-sizing: border-box; }
+        .input-field:focus { outline: none; border-color: #000; box-shadow: 0 0 0 3px rgba(0,0,0,0.1); }
+        .input-textarea { resize: vertical; min-height: 120px; }
+        .submit-btn { width: 100%; padding: 18px; background: #000; color: white; border: none; border-radius: 4px; font-size: 16px; font-weight: 700; cursor: pointer; margin-top: 10px; text-transform: uppercase; letter-spacing: 1px; }
+        .submit-btn:hover { background: #333; }
+        .info-section { margin-top: 50px; padding-top: 40px; border-top: 2px solid #eee; }
+        .info-title { margin-bottom: 25px; color: #000; font-size: 24px; font-weight: 700; }
+        .info-item { margin-bottom: 18px; color: #333; line-height: 1.8; font-size: 16px; }
+        .info-item strong { color: #000; margin-right: 10px; font-weight: 700; }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <div class="logo"><h1>ADIDAS</h1></div>
+            <nav>
+                <ul>
+                    <li><a href="index.html">Trang chủ</a></li>
+                    <li><a href="index.html#products">Sản phẩm</a></li>
+                    <li><a href="contact.html">Liên hệ</a></li>
+                    <li><a href="index.html#cart">Giỏ hàng (<span id="cart-count">0</span>)</a></li>
+                    <li id="authNav">
+                        <a href="login.html" class="btn-login">Đăng nhập</a>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <div class="page-content">
+        <div class="white-box">
+            <h2 class="page-title">Liên hệ tư vấn</h2>
+            <p class="page-subtitle">Để lại thông tin, chúng tôi sẽ liên hệ tư vấn cho bạn</p>
+
+            <form id="myForm">
+                <div class="input-group">
+                    <label class="input-label">Họ và tên *</label>
+                    <input type="text" id="nameInput" class="input-field" required placeholder="Nhập họ và tên">
+                </div>
+
+                <div class="input-group">
+                    <label class="input-label">Email *</label>
+                    <input type="email" id="emailInput" class="input-field" required placeholder="Nhập email">
+                </div>
+
+                <div class="input-group">
+                    <label class="input-label">Số điện thoại</label>
+                    <input type="tel" id="phoneInput" class="input-field" placeholder="Nhập số điện thoại">
+                </div>
+
+                <div class="input-group">
+                    <label class="input-label">Chủ đề *</label>
+                    <select id="subjectInput" class="input-field" required>
+                        <option value="">Chọn chủ đề</option>
+                        <option value="Tư vấn sản phẩm">Tư vấn sản phẩm</option>
+                        <option value="Hỏi về đơn hàng">Hỏi về đơn hàng</option>
+                        <option value="Khiếu nại">Khiếu nại</option>
+                        <option value="Góp ý">Góp ý</option>
+                        <option value="Khác">Khác</option>
+                    </select>
+                </div>
+
+                <div class="input-group">
+                    <label class="input-label">Nội dung *</label>
+                    <textarea id="messageInput" class="input-field input-textarea" required placeholder="Nhập nội dung cần tư vấn"></textarea>
+                </div>
+
+                <button type="submit" class="submit-btn">Gửi yêu cầu</button>
+            </form>
+
+            <div class="info-section">
+                <h3 class="info-title">Thông tin liên hệ</h3>
+                <p class="info-item"><strong>📍 Địa chỉ:</strong> 123 Nguyễn Huệ, Quận 1, TP.HCM</p>
+                <p class="info-item"><strong>📞 Hotline:</strong> 1900 xxxx</p>
+                <p class="info-item"><strong>📧 Email:</strong> support@adidas-shop.vn</p>
+                <p class="info-item"><strong>🕐 Giờ làm việc:</strong> 8:00 - 22:00 (Thứ 2 - Chủ nhật)</p>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2026 Adidas Shop. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script>
+        const API_URL = 'http://localhost:3001/api';
+
+        // Load user info and cart count on page load
+        window.addEventListener('load', async function() {
+            await loadUserInfo();
+            await loadCartCount();
+        });
+
+        // Load user info and auto-fill form
+        async function loadUserInfo() {
+            const token = localStorage.getItem('userToken');
+            const authNav = document.getElementById('authNav');
+            
+            if (token) {
+                try {
+                    const response = await fetch(API_URL + '/auth/me', {
+                        headers: { 'Authorization': 'Bearer ' + token }
+                    });
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        const userName = (data.customer && data.customer.name) || data.user.email.split('@')[0];
+                        const isAdmin = data.user.role === 'admin';
+                        
+                        // Update navigation - chỉ hiển thị nút quản trị nếu role là admin
+                        if (isAdmin) {
+                            authNav.innerHTML = '<a href="admin.html" class="btn-admin" style="background: #ff6b00; color: white; padding: 8px 16px; border-radius: 4px; text-decoration: none; margin-right: 10px;">⚙️ Quản trị</a><a href="profile.html" class="btn-login">👤 ' + userName + '</a>';
+                        } else {
+                            authNav.innerHTML = '<a href="profile.html" class="btn-login">👤 ' + userName + '</a>';
+                        }
+                        
+                        // Auto-fill form with user info
+                        if (data.customer) {
+                            document.getElementById('nameInput').value = data.customer.name || '';
+                            document.getElementById('emailInput').value = data.customer.email || '';
+                            document.getElementById('phoneInput').value = data.customer.phone || '';
+                        } else {
+                            document.getElementById('emailInput').value = data.user.email || '';
+                        }
+                    }
+                } catch (error) {
+                    console.error('Load user info error:', error);
+                }
+            }
+        }
+
+        // Load cart count
+        async function loadCartCount() {
+            const token = localStorage.getItem('userToken');
+            
+            if (!token) {
+                document.getElementById('cart-count').textContent = '0';
+                return;
+            }
+            
+            try {
+                const response = await fetch(API_URL + '/customer/cart', {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    const count = data.items.reduce(function(sum, item) {
+                        return sum + item.quantity;
+                    }, 0);
+                    document.getElementById('cart-count').textContent = count;
+                }
+            } catch (error) {
+                console.error('Load cart error:', error);
+            }
+        }
+
+        // Handle form submission
+        document.getElementById('myForm').onsubmit = async function(e) {
+            e.preventDefault();
+            
+            var nameVal = document.getElementById('nameInput').value;
+            var emailVal = document.getElementById('emailInput').value;
+            var phoneVal = document.getElementById('phoneInput').value;
+            var subjectVal = document.getElementById('subjectInput').value;
+            var messageVal = document.getElementById('messageInput').value;
+            
+            try {
+                var response = await fetch(API_URL + '/contact', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        name: nameVal, 
+                        email: emailVal, 
+                        phone: phoneVal, 
+                        subject: subjectVal, 
+                        message: messageVal 
+                    })
+                });
+                
+                var data = await response.json();
+                
+                if (response.ok) {
+                    alert('✅ ' + data.message);
+                    // Reset only subject and message, keep user info
+                    document.getElementById('subjectInput').value = '';
+                    document.getElementById('messageInput').value = '';
+                } else {
+                    alert('❌ ' + (data.error || 'Có lỗi xảy ra'));
+                }
+            } catch (error) {
+                alert('❌ Lỗi kết nối: ' + error.message);
+            }
+        };
+    </script>
+</body>
+</html>

@@ -23,6 +23,7 @@ async function checkAuth() {
 
         if (currentUser.role !== 'admin') {
             alert('Bạn không có quyền truy cập trang này');
+            localStorage.removeItem('adminToken');
             window.location.href = 'index.html';
             return;
         }
@@ -93,6 +94,9 @@ async function loadPageData(page) {
         case 'reviews':
             await loadReviews();
             break;
+        case 'contacts':
+            await loadContacts();
+            break;
     }
 }
 
@@ -106,6 +110,7 @@ async function loadDashboard() {
         document.getElementById('totalCustomers').textContent = data.stats.totalCustomers;
         document.getElementById('totalRevenue').textContent = 
             new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(data.stats.totalRevenue);
+        document.getElementById('pendingContacts').textContent = data.stats.pendingContacts || 0;
         
         // Recent orders
         const ordersHtml = data.recentOrders.map(order => `
@@ -446,10 +451,453 @@ async function viewOrder(orderId) {
     }
 }
 
+// Edit category
+async function editCategory(id) {
+    try {
+        const categories = await apiCall('/categories');
+        const category = categories.find(c => c.id === id);
+        
+        if (category) {
+            document.getElementById('categoryId').value = category.id;
+            document.getElementById('categoryName').value = category.name;
+            document.getElementById('categoryDescription').value = category.description || '';
+            document.getElementById('categoryModalTitle').textContent = 'Sửa danh mục';
+            document.getElementById('categoryModal').classList.add('show');
+        }
+    } catch (error) {
+        console.error('Edit category error:', error);
+        alert('Lỗi tải thông tin danh mục');
+    }
+}
+
+// Delete category
+async function deleteCategory(id) {
+    if (!confirm('Bạn có chắc muốn xóa danh mục này?')) return;
+    
+    try {
+        await apiCall(`/admin/categories/${id}`, { method: 'DELETE' });
+        alert('Xóa danh mục thành công');
+        loadCategories();
+    } catch (error) {
+        console.error('Delete category error:', error);
+        alert('Lỗi: ' + error.message);
+    }
+}
+
+// Show product modal
+async function showProductModal(productId = null) {
+    try {
+        // Load categories for dropdown
+        const categories = await apiCall('/categories');
+        
+        // Create modal HTML
+        const modal = document.createElement('div');
+        modal.id = 'productModal';
+        modal.className = 'modal show';
+        modal.innerHTML = `
+            <div class="modal-content" style="max-width: 600px;">
+                <span class="close">&times;</span>
+                <h2>${productId ? 'Sửa sản phẩm' : 'Thêm sản phẩm'}</h2>
+                <form id="productForm">
+                    <input type="hidden" id="productId" value="${productId || ''}">
+                    <div class="form-group">
+                        <label>Tên sản phẩm *</label>
+                        <input type="text" id="productName" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Giá *</label>
+                        <input type="number" id="productPrice" required min="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Danh mục *</label>
+                        <select id="productCategory" required>
+                            <option value="">Chọn danh mục</option>
+                            ${categories.map(cat => `<option value="${cat.id}">${cat.name}</option>`).join('')}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Hình ảnh sản phẩm *</label>
+                        <div style="display: flex; gap: 10px; align-items: flex-start;">
+                            <div style="flex: 1;">
+                                <input type="file" id="productImageFile" accept="image/*" required style="margin-bottom: 10px;">
+                                <input type="hidden" id="productImage" required>
+                                <small style="color: #666; display: block; margin-top: 5px;">
+                                    Upload ảnh từ máy tính (tối đa 5MB)
+                                </small>
+                            </div>
+                            <div id="imagePreview" style="width: 100px; height: 100px; border: 1px solid #ddd; border-radius: 4px; overflow: hidden; display: none;">
+                                <img id="previewImg" src="" alt="Preview" style="width: 100%; height: 100%; object-fit: cover;">
+                            </div>
+                        </div>
+                        <div id="uploadProgress" style="display: none; margin-top: 10px;">
+                            <div style="background: #f0f0f0; height: 20px; border-radius: 10px; overflow: hidden;">
+                                <div id="progressBar" style="background: #4CAF50; height: 100%; width: 0%; transition: width 0.3s;"></div>
+                            </div>
+                            <small id="uploadStatus" style="color: #666;"></small>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Mô tả *</label>
+                        <textarea id="productDescription" rows="4" required></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Số lượng *</label>
+                        <input type="number" id="productStock" required min="0">
+                    </div>
+                    <button type="submit" class="btn-primary">Lưu</button>
+                </form>
+            </div>
+        `;
+        
+        // Remove existing modal if any
+        const existingModal = document.getElementById('productModal');
+        if (existingModal) existingModal.remove();
+        
+        document.body.appendChild(modal);
+        
+        // Setup image upload handler
+        const imageFileInput = document.getElementById('productImageFile');
+        const imageUrlInput = document.getElementById('productImage');
+        const imagePreview = document.getElementById('imagePreview');
+        const previewImg = document.getElementById('previewImg');
+        
+        imageFileInput.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            // Show preview
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                previewImg.src = e.target.result;
+                imagePreview.style.display = 'block';
+            };
+            reader.readAsDataURL(file);
+            
+            // Upload file
+            await uploadProductImage(file);
+        });
+        
+        // If editing, load product data
+        if (productId) {
+            const products = await apiCall('/products');
+            const product = products.find(p => p.id === productId);
+            
+            if (product) {
+                document.getElementById('productName').value = product.name;
+                document.getElementById('productPrice').value = product.price;
+                document.getElementById('productCategory').value = product.category_id;
+                document.getElementById('productImage').value = product.image;
+                document.getElementById('productDescription').value = product.description;
+                document.getElementById('productStock').value = product.stock;
+                
+                // Show preview
+                if (product.image) {
+                    previewImg.src = product.image;
+                    imagePreview.style.display = 'block';
+                }
+            }
+        }
+        
+        // Close button
+        modal.querySelector('.close').addEventListener('click', () => {
+            modal.remove();
+        });
+        
+        // Form submit
+        document.getElementById('productForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await saveProduct();
+            modal.remove();
+        });
+        
+    } catch (error) {
+        console.error('Show product modal error:', error);
+        alert('Lỗi: ' + error.message);
+    }
+}
+
+// Upload product image
+async function uploadProductImage(file) {
+    const uploadProgress = document.getElementById('uploadProgress');
+    const progressBar = document.getElementById('progressBar');
+    const uploadStatus = document.getElementById('uploadStatus');
+    const imageUrlInput = document.getElementById('productImage');
+    
+    try {
+        uploadProgress.style.display = 'block';
+        uploadStatus.textContent = 'Đang upload...';
+        progressBar.style.width = '30%';
+        
+        const formData = new FormData();
+        formData.append('image', file);
+        
+        const response = await fetch(`${API_URL}/admin/upload`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`
+            },
+            body: formData
+        });
+        
+        progressBar.style.width = '70%';
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Upload thất bại');
+        }
+        
+        const data = await response.json();
+        
+        // Update image URL input
+        imageUrlInput.value = data.imageUrl;
+        
+        progressBar.style.width = '100%';
+        uploadStatus.textContent = 'Upload thành công!';
+        uploadStatus.style.color = '#4CAF50';
+        
+        setTimeout(() => {
+            uploadProgress.style.display = 'none';
+            progressBar.style.width = '0%';
+            uploadStatus.style.color = '#666';
+        }, 2000);
+        
+    } catch (error) {
+        console.error('Upload error:', error);
+        uploadStatus.textContent = 'Lỗi: ' + error.message;
+        uploadStatus.style.color = '#f44336';
+        progressBar.style.width = '0%';
+    }
+}
+
+// Save product
+async function saveProduct() {
+    const id = document.getElementById('productId').value;
+    const name = document.getElementById('productName').value;
+    const price = document.getElementById('productPrice').value;
+    const category_id = document.getElementById('productCategory').value;
+    const image = document.getElementById('productImage').value;
+    const description = document.getElementById('productDescription').value;
+    const stock = document.getElementById('productStock').value;
+    
+    try {
+        if (id) {
+            // Update
+            await apiCall(`/admin/products/${id}`, {
+                method: 'PUT',
+                body: JSON.stringify({ name, price, category_id, image, description, stock })
+            });
+            alert('Cập nhật sản phẩm thành công');
+        } else {
+            // Create
+            await apiCall('/admin/products', {
+                method: 'POST',
+                body: JSON.stringify({ name, price, category_id, image, description, stock })
+            });
+            alert('Thêm sản phẩm thành công');
+        }
+        
+        loadProducts();
+    } catch (error) {
+        console.error('Save product error:', error);
+        alert('Lỗi: ' + error.message);
+    }
+}
+
+// Edit product
+function editProduct(id) {
+    showProductModal(id);
+}
+
+// Delete product
+async function deleteProduct(id) {
+    if (!confirm('Bạn có chắc muốn xóa sản phẩm này?')) return;
+    
+    try {
+        await apiCall(`/admin/products/${id}`, { method: 'DELETE' });
+        alert('Xóa sản phẩm thành công');
+        loadProducts();
+    } catch (error) {
+        console.error('Delete product error:', error);
+        alert('Lỗi: ' + error.message);
+    }
+}
+
+// Contacts
+async function loadContacts(status = '') {
+    try {
+        const endpoint = status ? `/admin/contacts?status=${status}` : '/admin/contacts';
+        const contacts = await apiCall(endpoint);
+        
+        const html = `
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Tên</th>
+                        <th>Email</th>
+                        <th>Số ĐT</th>
+                        <th>Chủ đề</th>
+                        <th>Trạng thái</th>
+                        <th>Ngày gửi</th>
+                        <th>Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${contacts.map(contact => `
+                        <tr>
+                            <td>#${contact.id}</td>
+                            <td>${contact.name}</td>
+                            <td>${contact.email}</td>
+                            <td>${contact.phone || 'N/A'}</td>
+                            <td>${contact.subject}</td>
+                            <td><span class="status-badge status-${contact.status}">${getContactStatusText(contact.status)}</span></td>
+                            <td>${new Date(contact.created_at).toLocaleString('vi-VN')}</td>
+                            <td>
+                                <button class="btn-secondary" onclick="viewContact(${contact.id})">Xem</button>
+                                <select onchange="updateContactStatus(${contact.id}, this.value)">
+                                    <option value="">Đổi trạng thái</option>
+                                    <option value="pending">Chờ xử lý</option>
+                                    <option value="processing">Đang xử lý</option>
+                                    <option value="completed">Hoàn thành</option>
+                                </select>
+                                <button class="btn-danger" onclick="deleteContact(${contact.id})">Xóa</button>
+                            </td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        `;
+        
+        document.getElementById('contactsList').innerHTML = html;
+    } catch (error) {
+        console.error('Load contacts error:', error);
+        alert('Lỗi tải liên hệ');
+    }
+}
+
+// View contact detail
+async function viewContact(contactId) {
+    try {
+        const contact = await apiCall(`/admin/contacts/${contactId}`);
+        
+        const html = `
+            <div class="contact-detail">
+                <p><strong>ID:</strong> #${contact.id}</p>
+                <p><strong>Tên:</strong> ${contact.name}</p>
+                <p><strong>Email:</strong> ${contact.email}</p>
+                <p><strong>Số điện thoại:</strong> ${contact.phone || 'N/A'}</p>
+                <p><strong>Chủ đề:</strong> ${contact.subject}</p>
+                <p><strong>Trạng thái:</strong> <span class="status-badge status-${contact.status}">${getContactStatusText(contact.status)}</span></p>
+                <p><strong>Ngày gửi:</strong> ${new Date(contact.created_at).toLocaleString('vi-VN')}</p>
+                <hr>
+                <p><strong>Nội dung:</strong></p>
+                <p style="white-space: pre-wrap; background: #f5f5f5; padding: 15px; border-radius: 4px;">${contact.message}</p>
+            </div>
+        `;
+        
+        document.getElementById('contactDetail').innerHTML = html;
+        document.getElementById('contactModal').classList.add('show');
+    } catch (error) {
+        console.error('View contact error:', error);
+        alert('Lỗi xem chi tiết liên hệ');
+    }
+}
+
+// Update contact status
+async function updateContactStatus(contactId, status) {
+    if (!status) return;
+    
+    try {
+        await apiCall(`/admin/contacts/${contactId}/status`, {
+            method: 'PUT',
+            body: JSON.stringify({ status })
+        });
+        
+        alert('Cập nhật trạng thái thành công');
+        loadContacts();
+    } catch (error) {
+        console.error('Update contact status error:', error);
+        alert('Lỗi cập nhật trạng thái');
+    }
+}
+
+// Delete contact
+async function deleteContact(contactId) {
+    if (!confirm('Bạn có chắc muốn xóa liên hệ này?')) return;
+    
+    try {
+        await apiCall(`/admin/contacts/${contactId}`, { method: 'DELETE' });
+        alert('Xóa liên hệ thành công');
+        loadContacts();
+    } catch (error) {
+        console.error('Delete contact error:', error);
+        alert('Lỗi xóa liên hệ');
+    }
+}
+
+function getContactStatusText(status) {
+    const statusMap = {
+        'pending': 'Chờ xử lý',
+        'processing': 'Đang xử lý',
+        'completed': 'Hoàn thành'
+    };
+    return statusMap[status] || status;
+}
+
 // Event listeners
 document.getElementById('logoutBtn').addEventListener('click', () => {
+    localStorage.removeItem('userToken');
+    localStorage.removeItem('customerId');
     localStorage.removeItem('adminToken');
+    localStorage.removeItem('isAdmin');
     window.location.href = 'login.html';
+});
+
+// Add Category button
+document.getElementById('addCategoryBtn').addEventListener('click', () => {
+    document.getElementById('categoryId').value = '';
+    document.getElementById('categoryName').value = '';
+    document.getElementById('categoryDescription').value = '';
+    document.getElementById('categoryModalTitle').textContent = 'Thêm danh mục';
+    document.getElementById('categoryModal').classList.add('show');
+});
+
+// Add Product button
+document.getElementById('addProductBtn').addEventListener('click', () => {
+    showProductModal();
+});
+
+// Category form submit
+document.getElementById('categoryForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const id = document.getElementById('categoryId').value;
+    const name = document.getElementById('categoryName').value;
+    const description = document.getElementById('categoryDescription').value;
+    
+    try {
+        if (id) {
+            // Update
+            await apiCall(`/admin/categories/${id}`, {
+                method: 'PUT',
+                body: JSON.stringify({ name, description })
+            });
+            alert('Cập nhật danh mục thành công');
+        } else {
+            // Create
+            await apiCall('/admin/categories', {
+                method: 'POST',
+                body: JSON.stringify({ name, description })
+            });
+            alert('Thêm danh mục thành công');
+        }
+        
+        document.getElementById('categoryModal').classList.remove('show');
+        loadCategories();
+    } catch (error) {
+        console.error('Save category error:', error);
+        alert('Lỗi: ' + error.message);
+    }
 });
 
 document.getElementById('orderStatusFilter').addEventListener('change', (e) => {
@@ -458,6 +906,10 @@ document.getElementById('orderStatusFilter').addEventListener('change', (e) => {
 
 document.getElementById('reviewStatusFilter').addEventListener('change', (e) => {
     loadReviews(e.target.value);
+});
+
+document.getElementById('contactStatusFilter').addEventListener('change', (e) => {
+    loadContacts(e.target.value);
 });
 
 // Close modals

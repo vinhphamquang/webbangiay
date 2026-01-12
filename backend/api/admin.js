@@ -1,11 +1,59 @@
 const express = require('express');
 const router = express.Router();
+const multer = require('multer');
+const path = require('path');
 const { pool } = require('../config/database');
 const { authenticateToken, requireAdmin } = require('./auth');
+
+// Configure multer for file upload
+const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        cb(null, path.join(__dirname, '../../frontend/uploads'));
+    },
+    filename: function (req, file, cb) {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        cb(null, 'product-' + uniqueSuffix + path.extname(file.originalname));
+    }
+});
+
+const upload = multer({
+    storage: storage,
+    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+    fileFilter: function (req, file, cb) {
+        const allowedTypes = /jpeg|jpg|png|gif|webp/;
+        const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+        const mimetype = allowedTypes.test(file.mimetype);
+        
+        if (mimetype && extname) {
+            return cb(null, true);
+        } else {
+            cb(new Error('Chỉ chấp nhận file ảnh (jpeg, jpg, png, gif, webp)'));
+        }
+    }
+});
 
 // Áp dụng middleware cho tất cả routes
 router.use(authenticateToken);
 router.use(requireAdmin);
+
+// POST /api/admin/upload - Upload ảnh sản phẩm
+router.post('/upload', upload.single('image'), (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ error: 'Không có file được upload' });
+        }
+        
+        const imageUrl = `/uploads/${req.file.filename}`;
+        res.json({ 
+            success: true,
+            imageUrl: imageUrl,
+            filename: req.file.filename
+        });
+    } catch (error) {
+        console.error('Upload error:', error);
+        res.status(500).json({ error: 'Lỗi upload ảnh' });
+    }
+});
 
 // ============ QUẢN LÝ DANH MỤC ============
 
@@ -114,6 +162,73 @@ router.get('/products', async (req, res) => {
     } catch (error) {
         console.error('Get products error:', error);
         res.status(500).json({ error: 'Lỗi lấy sản phẩm' });
+    }
+});
+
+// POST /api/admin/products - Tạo sản phẩm mới
+router.post('/products', async (req, res) => {
+    try {
+        const { name, price, category_id, image, description, stock } = req.body;
+        
+        if (!name || !price || !category_id || !image || !description || stock === undefined) {
+            return res.status(400).json({ error: 'Thiếu thông tin bắt buộc' });
+        }
+
+        const [result] = await pool.query(
+            'INSERT INTO products (name, price, category_id, image, description, stock) VALUES (?, ?, ?, ?, ?, ?)',
+            [name, price, category_id, image, description, stock]
+        );
+
+        const [products] = await pool.query('SELECT * FROM products WHERE id = ?', [result.insertId]);
+        res.status(201).json(products[0]);
+    } catch (error) {
+        console.error('Create product error:', error);
+        res.status(500).json({ error: 'Lỗi tạo sản phẩm' });
+    }
+});
+
+// PUT /api/admin/products/:id - Cập nhật sản phẩm
+router.put('/products/:id', async (req, res) => {
+    try {
+        const { name, price, category_id, image, description, stock } = req.body;
+
+        const [result] = await pool.query(
+            `UPDATE products SET 
+                name = COALESCE(?, name), 
+                price = COALESCE(?, price), 
+                category_id = COALESCE(?, category_id), 
+                image = COALESCE(?, image), 
+                description = COALESCE(?, description), 
+                stock = COALESCE(?, stock) 
+            WHERE id = ?`,
+            [name, price, category_id, image, description, stock, req.params.id]
+        );
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ error: 'Không tìm thấy sản phẩm' });
+        }
+
+        const [products] = await pool.query('SELECT * FROM products WHERE id = ?', [req.params.id]);
+        res.json(products[0]);
+    } catch (error) {
+        console.error('Update product error:', error);
+        res.status(500).json({ error: 'Lỗi cập nhật sản phẩm' });
+    }
+});
+
+// DELETE /api/admin/products/:id - Xóa sản phẩm
+router.delete('/products/:id', async (req, res) => {
+    try {
+        const [result] = await pool.query('DELETE FROM products WHERE id = ?', [req.params.id]);
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ error: 'Không tìm thấy sản phẩm' });
+        }
+
+        res.json({ message: 'Xóa sản phẩm thành công' });
+    } catch (error) {
+        console.error('Delete product error:', error);
+        res.status(500).json({ error: 'Lỗi xóa sản phẩm' });
     }
 });
 
@@ -254,6 +369,8 @@ router.get('/orders/:id', async (req, res) => {
 
 // PUT /api/admin/orders/:id/status - Cập nhật trạng thái đơn hàng
 router.put('/orders/:id/status', async (req, res) => {
+    const connection = await pool.getConnection();
+    
     try {
         const { status } = req.body;
 
@@ -261,20 +378,59 @@ router.put('/orders/:id/status', async (req, res) => {
             return res.status(400).json({ error: 'Trạng thái không hợp lệ' });
         }
 
-        const [result] = await pool.query(
+        await connection.beginTransaction();
+
+        // Lấy trạng thái hiện tại của đơn hàng
+        const [orders] = await connection.query('SELECT status FROM orders WHERE id = ?', [req.params.id]);
+        
+        if (orders.length === 0) {
+            await connection.rollback();
+            return res.status(404).json({ error: 'Không tìm thấy đơn hàng' });
+        }
+
+        const oldStatus = orders[0].status;
+
+        // Lấy chi tiết đơn hàng
+        const [orderItems] = await connection.query(
+            'SELECT product_id, quantity FROM order_items WHERE order_id = ?',
+            [req.params.id]
+        );
+
+        // Xử lý thay đổi tồn kho
+        if (oldStatus !== 'completed' && status === 'completed') {
+            // Chuyển sang completed: GIẢM kho
+            for (const item of orderItems) {
+                await connection.query(
+                    'UPDATE products SET stock = stock - ? WHERE id = ?',
+                    [item.quantity, item.product_id]
+                );
+            }
+        } else if (oldStatus === 'completed' && status !== 'completed') {
+            // Chuyển từ completed sang trạng thái khác: HOÀN lại kho
+            for (const item of orderItems) {
+                await connection.query(
+                    'UPDATE products SET stock = stock + ? WHERE id = ?',
+                    [item.quantity, item.product_id]
+                );
+            }
+        }
+
+        // Cập nhật trạng thái đơn hàng
+        await connection.query(
             'UPDATE orders SET status = ? WHERE id = ?',
             [status, req.params.id]
         );
 
-        if (result.affectedRows === 0) {
-            return res.status(404).json({ error: 'Không tìm thấy đơn hàng' });
-        }
+        await connection.commit();
 
-        const [orders] = await pool.query('SELECT * FROM orders WHERE id = ?', [req.params.id]);
-        res.json(orders[0]);
+        const [updatedOrders] = await connection.query('SELECT * FROM orders WHERE id = ?', [req.params.id]);
+        res.json(updatedOrders[0]);
     } catch (error) {
+        await connection.rollback();
         console.error('Update order status error:', error);
         res.status(500).json({ error: 'Lỗi cập nhật trạng thái đơn hàng' });
+    } finally {
+        connection.release();
     }
 });
 
@@ -362,6 +518,7 @@ router.get('/dashboard', async (req, res) => {
         const [revenue] = await pool.query('SELECT SUM(total_amount) as total FROM orders WHERE status = "completed"');
         const [pendingOrders] = await pool.query('SELECT COUNT(*) as count FROM orders WHERE status = "pending"');
         const [lowStock] = await pool.query('SELECT COUNT(*) as count FROM products WHERE stock < 10');
+        const [pendingContacts] = await pool.query('SELECT COUNT(*) as count FROM contacts WHERE status = "pending"');
         
         const [recentOrders] = await pool.query(`
             SELECT o.*, c.name as customer_name
@@ -389,7 +546,8 @@ router.get('/dashboard', async (req, res) => {
                 totalCustomers: customerCount[0].count,
                 totalRevenue: parseFloat(revenue[0].total || 0),
                 pendingOrders: pendingOrders[0].count,
-                lowStockProducts: lowStock[0].count
+                lowStockProducts: lowStock[0].count,
+                pendingContacts: pendingContacts[0].count
             },
             recentOrders,
             topProducts
@@ -397,6 +555,89 @@ router.get('/dashboard', async (req, res) => {
     } catch (error) {
         console.error('Get dashboard error:', error);
         res.status(500).json({ error: 'Lỗi lấy thống kê' });
+    }
+});
+
+// ============ QUẢN LÝ LIÊN HỆ ============
+
+// GET /api/admin/contacts - Lấy danh sách liên hệ
+router.get('/contacts', async (req, res) => {
+    try {
+        const status = req.query.status;
+        
+        let query = 'SELECT * FROM contacts';
+        const params = [];
+        
+        if (status) {
+            query += ' WHERE status = ?';
+            params.push(status);
+        }
+        
+        query += ' ORDER BY created_at DESC';
+        
+        const [contacts] = await pool.query(query, params);
+        res.json(contacts);
+    } catch (error) {
+        console.error('Get contacts error:', error);
+        res.status(500).json({ error: 'Lỗi lấy danh sách liên hệ' });
+    }
+});
+
+// GET /api/admin/contacts/:id - Lấy chi tiết liên hệ
+router.get('/contacts/:id', async (req, res) => {
+    try {
+        const [contacts] = await pool.query('SELECT * FROM contacts WHERE id = ?', [req.params.id]);
+        
+        if (contacts.length === 0) {
+            return res.status(404).json({ error: 'Không tìm thấy liên hệ' });
+        }
+        
+        res.json(contacts[0]);
+    } catch (error) {
+        console.error('Get contact error:', error);
+        res.status(500).json({ error: 'Lỗi lấy thông tin liên hệ' });
+    }
+});
+
+// PUT /api/admin/contacts/:id/status - Cập nhật trạng thái liên hệ
+router.put('/contacts/:id/status', async (req, res) => {
+    try {
+        const { status } = req.body;
+
+        if (!['pending', 'processing', 'completed'].includes(status)) {
+            return res.status(400).json({ error: 'Trạng thái không hợp lệ' });
+        }
+
+        const [result] = await pool.query(
+            'UPDATE contacts SET status = ? WHERE id = ?',
+            [status, req.params.id]
+        );
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ error: 'Không tìm thấy liên hệ' });
+        }
+
+        const [contacts] = await pool.query('SELECT * FROM contacts WHERE id = ?', [req.params.id]);
+        res.json(contacts[0]);
+    } catch (error) {
+        console.error('Update contact status error:', error);
+        res.status(500).json({ error: 'Lỗi cập nhật trạng thái liên hệ' });
+    }
+});
+
+// DELETE /api/admin/contacts/:id - Xóa liên hệ
+router.delete('/contacts/:id', async (req, res) => {
+    try {
+        const [result] = await pool.query('DELETE FROM contacts WHERE id = ?', [req.params.id]);
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ error: 'Không tìm thấy liên hệ' });
+        }
+
+        res.json({ message: 'Xóa liên hệ thành công' });
+    } catch (error) {
+        console.error('Delete contact error:', error);
+        res.status(500).json({ error: 'Lỗi xóa liên hệ' });
     }
 });
 

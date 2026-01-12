@@ -95,13 +95,25 @@ router.post('/login', async (req, res) => {
             return res.status(401).json({ error: 'Email hoặc mật khẩu không đúng' });
         }
 
-        // Lấy thông tin customer
-        const [customers] = await pool.query('SELECT * FROM customers WHERE user_id = ?', [user.id]);
-        const customer = customers[0];
+        // Lấy hoặc tạo customer profile (cả admin cũng cần customer profile để mua hàng)
+        let [customers] = await pool.query('SELECT * FROM customers WHERE user_id = ?', [user.id]);
+        let customer = customers[0];
+
+        // Nếu chưa có customer profile (ví dụ: admin), tạo mới
+        if (!customer) {
+            const name = user.email.split('@')[0];
+            const [result] = await pool.query(
+                'INSERT INTO customers (user_id, name, email) VALUES (?, ?, ?)',
+                [user.id, name, user.email]
+            );
+            
+            [customers] = await pool.query('SELECT * FROM customers WHERE id = ?', [result.insertId]);
+            customer = customers[0];
+        }
 
         // Tạo token
         const token = jwt.sign(
-            { userId: user.id, email: user.email, role: user.role, customerId: customer?.id },
+            { userId: user.id, email: user.email, role: user.role, customerId: customer.id },
             JWT_SECRET,
             { expiresIn: '7d' }
         );
@@ -112,8 +124,8 @@ router.post('/login', async (req, res) => {
                 id: user.id,
                 email: user.email,
                 role: user.role,
-                customerId: customer?.id,
-                name: customer?.name
+                customerId: customer.id,
+                name: customer.name
             }
         });
     } catch (error) {

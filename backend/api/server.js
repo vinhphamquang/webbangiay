@@ -5,6 +5,7 @@ const { pool, testConnection } = require('../config/database');
 const { router: authRouter } = require('./auth');
 const adminRouter = require('./admin');
 const customerRouter = require('./customer');
+const contactRouter = require('./contact');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -20,6 +21,7 @@ app.use(express.static(path.join(__dirname, '..', '..', 'frontend')));
 app.use('/api/auth', authRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/customer', customerRouter);
+app.use('/api/contact', contactRouter);
 
 // Initialize database connection
 async function initializeData() {
@@ -65,12 +67,13 @@ app.get('/api/products', asyncHandler(async (req, res) => {
         ORDER BY p.id
     `);
     
-    // Map category_id to category name for frontend compatibility
+    // Return products with category_id for dynamic category support
     const products = rows.map(row => ({
         id: row.id,
         name: row.name,
         price: parseFloat(row.price),
-        category: getCategorySlug(row.category_id),
+        category_id: row.category_id,
+        category_name: row.category_name,
         image: row.image,
         description: row.description,
         stock: row.stock

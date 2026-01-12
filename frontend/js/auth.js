@@ -1,5 +1,22 @@
 const API_URL = 'http://localhost:3001/api';
 
+// Toggle password visibility
+document.querySelectorAll('.toggle-password').forEach(button => {
+    button.addEventListener('click', function() {
+        const targetId = this.getAttribute('data-target');
+        const input = document.getElementById(targetId);
+        const icon = this.querySelector('.eye-icon');
+        
+        if (input.type === 'password') {
+            input.type = 'text';
+            icon.textContent = '🙈';
+        } else {
+            input.type = 'password';
+            icon.textContent = '👁️';
+        }
+    });
+});
+
 // Switch between login and register forms
 document.getElementById('showRegister').addEventListener('click', (e) => {
     e.preventDefault();
@@ -34,15 +51,17 @@ document.getElementById('loginFormElement').addEventListener('submit', async (e)
         
         const data = await response.json();
         
-        // Save token
+        // Lưu token cho cả admin và user
+        localStorage.setItem('userToken', data.token);
+        localStorage.setItem('customerId', data.user.customerId);
+        
+        // Nếu là admin, lưu thêm adminToken và chuyển đến trang admin
         if (data.user.role === 'admin') {
             localStorage.setItem('adminToken', data.token);
+            localStorage.setItem('isAdmin', 'true');
             window.location.href = 'admin.html';
         } else {
-            localStorage.setItem('userToken', data.token);
-            localStorage.setItem('customerId', data.user.customerId);
-            
-            // Redirect to profile or home
+            // User thường chuyển về trang chủ hoặc trang redirect
             const redirectTo = new URLSearchParams(window.location.search).get('redirect') || 'index.html';
             window.location.href = redirectTo;
         }
@@ -54,6 +73,13 @@ document.getElementById('loginFormElement').addEventListener('submit', async (e)
 // Register
 document.getElementById('registerFormElement').addEventListener('submit', async (e) => {
     e.preventDefault();
+    
+    // Check if terms are agreed
+    const agreeTerms = document.getElementById('agreeTerms');
+    if (!agreeTerms.checked) {
+        showError('registerForm', 'Vui lòng đồng ý với điều khoản sử dụng');
+        return;
+    }
     
     const name = document.getElementById('registerName').value;
     const email = document.getElementById('registerEmail').value;
@@ -115,3 +141,55 @@ function showSuccess(formId, message) {
     
     form.insertBefore(successDiv, form.querySelector('form'));
 }
+
+
+// Modal handling
+const termsModal = document.getElementById('termsModal');
+const privacyModal = document.getElementById('privacyModal');
+const showTermsBtn = document.getElementById('showTerms');
+const showPrivacyBtn = document.getElementById('showPrivacy');
+const closeButtons = document.querySelectorAll('.modal-close');
+
+// Show Terms modal
+showTermsBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    termsModal.classList.add('show');
+    document.body.style.overflow = 'hidden';
+});
+
+// Show Privacy modal
+showPrivacyBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    privacyModal.classList.add('show');
+    document.body.style.overflow = 'hidden';
+});
+
+// Close modals
+closeButtons.forEach(button => {
+    button.addEventListener('click', () => {
+        termsModal.classList.remove('show');
+        privacyModal.classList.remove('show');
+        document.body.style.overflow = 'auto';
+    });
+});
+
+// Close modal when clicking outside
+window.addEventListener('click', (e) => {
+    if (e.target === termsModal) {
+        termsModal.classList.remove('show');
+        document.body.style.overflow = 'auto';
+    }
+    if (e.target === privacyModal) {
+        privacyModal.classList.remove('show');
+        document.body.style.overflow = 'auto';
+    }
+});
+
+// Close modal with ESC key
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        termsModal.classList.remove('show');
+        privacyModal.classList.remove('show');
+        document.body.style.overflow = 'auto';
+    }
+});

@@ -13,9 +13,6 @@
                 <h1>ADIDAS</h1>
                 <p>Shop Giày Chính Hãng</p>
             </div>
-            <div class="back-home">
-                <a href="index.html" class="btn-back">← Quay về trang chủ</a>
-            </div>
 
             <!-- Login Form -->
             <div id="loginForm" class="form-container active">
@@ -27,12 +24,20 @@
                     </div>
                     <div class="form-group">
                         <label>Mật khẩu</label>
-                        <input type="password" id="loginPassword" required>
+                        <div class="password-input-wrapper">
+                            <input type="password" id="loginPassword" required>
+                            <button type="button" class="toggle-password" data-target="loginPassword">
+                                <span class="eye-icon">👁️</span>
+                            </button>
+                        </div>
                     </div>
                     <button type="submit" class="btn-primary">Đăng nhập</button>
                 </form>
                 <p class="switch-form">
                     Chưa có tài khoản? <a href="#" id="showRegister">Đăng ký ngay</a>
+                </p>
+                <p class="back-home-bottom">
+                    <a href="index.html">← Quay về trang chủ</a>
                 </p>
             </div>
 
@@ -50,7 +55,12 @@
                     </div>
                     <div class="form-group">
                         <label>Mật khẩu *</label>
-                        <input type="password" id="registerPassword" required minlength="6">
+                        <div class="password-input-wrapper">
+                            <input type="password" id="registerPassword" required minlength="6">
+                            <button type="button" class="toggle-password" data-target="registerPassword">
+                                <span class="eye-icon">👁️</span>
+                            </button>
+                        </div>
                     </div>
                     <div class="form-group">
                         <label>Số điện thoại</label>
@@ -60,11 +70,192 @@
                         <label>Địa chỉ</label>
                         <textarea id="registerAddress" rows="3"></textarea>
                     </div>
+                    <div class="form-group checkbox-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="agreeTerms" required>
+                            <span>Tôi đồng ý với <a href="#" class="terms-link" id="showTerms">Điều khoản sử dụng</a> và <a href="#" class="terms-link" id="showPrivacy">Chính sách bảo mật</a></span>
+                        </label>
+                    </div>
                     <button type="submit" class="btn-primary">Đăng ký</button>
                 </form>
                 <p class="switch-form">
                     Đã có tài khoản? <a href="#" id="showLogin">Đăng nhập</a>
                 </p>
+                <p class="back-home-bottom">
+                    <a href="index.html">← Quay về trang chủ</a>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Terms Modal -->
+    <div id="termsModal" class="modal">
+        <div class="modal-content">
+            <span class="modal-close">&times;</span>
+            <h2>Điều khoản sử dụng</h2>
+            <div class="modal-body">
+                <h3>1. Chấp nhận điều khoản</h3>
+                <p>Bằng việc truy cập và sử dụng website Adidas Shop, bạn đồng ý tuân thủ các điều khoản và điều kiện sử dụng được quy định dưới đây.</p>
+
+                <h3>2. Tài khoản người dùng</h3>
+                <p>Khi đăng ký tài khoản, bạn cam kết:</p>
+                <ul>
+                    <li>Cung cấp thông tin chính xác, đầy đủ và cập nhật</li>
+                    <li>Bảo mật thông tin tài khoản và mật khẩu</li>
+                    <li>Chịu trách nhiệm về mọi hoạt động diễn ra dưới tài khoản của bạn</li>
+                    <li>Thông báo ngay cho chúng tôi nếu phát hiện việc sử dụng trái phép</li>
+                </ul>
+
+                <h3>3. Sử dụng dịch vụ</h3>
+                <p>Bạn đồng ý không:</p>
+                <ul>
+                    <li>Sử dụng dịch vụ cho mục đích bất hợp pháp</li>
+                    <li>Gây cản trở hoặc làm gián đoạn dịch vụ</li>
+                    <li>Tải lên nội dung vi phạm pháp luật hoặc quyền của bên thứ ba</li>
+                    <li>Thu thập thông tin người dùng khác mà không có sự đồng ý</li>
+                </ul>
+
+                <h3>4. Sản phẩm và giá cả</h3>
+                <ul>
+                    <li>Tất cả sản phẩm là hàng chính hãng Adidas</li>
+                    <li>Giá cả có thể thay đổi mà không cần báo trước</li>
+                    <li>Hình ảnh sản phẩm chỉ mang tính chất minh họa</li>
+                    <li>Chúng tôi có quyền từ chối hoặc hủy đơn hàng trong trường hợp cần thiết</li>
+                </ul>
+
+                <h3>5. Thanh toán và giao hàng</h3>
+                <ul>
+                    <li>Thanh toán được thực hiện qua các phương thức được hỗ trợ</li>
+                    <li>Thời gian giao hàng từ 3-7 ngày làm việc</li>
+                    <li>Phí vận chuyển được tính dựa trên địa chỉ giao hàng</li>
+                    <li>Khách hàng có trách nhiệm kiểm tra hàng khi nhận</li>
+                </ul>
+
+                <h3>6. Chính sách đổi trả</h3>
+                <ul>
+                    <li>Đổi trả trong vòng 30 ngày kể từ ngày mua</li>
+                    <li>Sản phẩm phải còn nguyên tem, mác, chưa qua sử dụng</li>
+                    <li>Có hóa đơn mua hàng hợp lệ</li>
+                    <li>Không áp dụng cho sản phẩm giảm giá đặc biệt</li>
+                </ul>
+
+                <h3>7. Quyền sở hữu trí tuệ</h3>
+                <p>Tất cả nội dung trên website bao gồm văn bản, hình ảnh, logo, thiết kế đều thuộc quyền sở hữu của Adidas và được bảo vệ bởi luật sở hữu trí tuệ.</p>
+
+                <h3>8. Giới hạn trách nhiệm</h3>
+                <p>Chúng tôi không chịu trách nhiệm về:</p>
+                <ul>
+                    <li>Thiệt hại gián tiếp phát sinh từ việc sử dụng dịch vụ</li>
+                    <li>Gián đoạn dịch vụ do sự cố kỹ thuật</li>
+                    <li>Thông tin từ các website liên kết bên thứ ba</li>
+                </ul>
+
+                <h3>9. Thay đổi điều khoản</h3>
+                <p>Chúng tôi có quyền thay đổi các điều khoản này bất cứ lúc nào. Việc tiếp tục sử dụng dịch vụ sau khi có thay đổi đồng nghĩa với việc bạn chấp nhận các điều khoản mới.</p>
+
+                <h3>10. Liên hệ</h3>
+                <p>Nếu có thắc mắc về điều khoản sử dụng, vui lòng liên hệ:</p>
+                <ul>
+                    <li>Email: support@adidasshop.com</li>
+                    <li>Hotline: 1900-xxxx</li>
+                    <li>Địa chỉ: [Địa chỉ công ty]</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Privacy Modal -->
+    <div id="privacyModal" class="modal">
+        <div class="modal-content">
+            <span class="modal-close">&times;</span>
+            <h2>Chính sách bảo mật</h2>
+            <div class="modal-body">
+                <h3>1. Thu thập thông tin</h3>
+                <p>Chúng tôi thu thập các thông tin sau:</p>
+                <ul>
+                    <li><strong>Thông tin cá nhân:</strong> Họ tên, email, số điện thoại, địa chỉ</li>
+                    <li><strong>Thông tin đơn hàng:</strong> Lịch sử mua hàng, sản phẩm đã xem</li>
+                    <li><strong>Thông tin kỹ thuật:</strong> IP address, loại trình duyệt, thiết bị</li>
+                    <li><strong>Cookies:</strong> Để cải thiện trải nghiệm người dùng</li>
+                </ul>
+
+                <h3>2. Mục đích sử dụng thông tin</h3>
+                <p>Thông tin của bạn được sử dụng để:</p>
+                <ul>
+                    <li>Xử lý và giao hàng đơn hàng</li>
+                    <li>Cung cấp dịch vụ chăm sóc khách hàng</li>
+                    <li>Gửi thông tin khuyến mãi, sản phẩm mới (nếu bạn đồng ý)</li>
+                    <li>Cải thiện chất lượng dịch vụ và website</li>
+                    <li>Phân tích hành vi người dùng để tối ưu trải nghiệm</li>
+                    <li>Phòng chống gian lận và bảo mật</li>
+                </ul>
+
+                <h3>3. Bảo mật thông tin</h3>
+                <p>Chúng tôi cam kết bảo vệ thông tin của bạn bằng:</p>
+                <ul>
+                    <li>Mã hóa SSL/TLS cho mọi giao dịch</li>
+                    <li>Hệ thống firewall và bảo mật nhiều lớp</li>
+                    <li>Kiểm soát truy cập nghiêm ngặt</li>
+                    <li>Sao lưu dữ liệu định kỳ</li>
+                    <li>Đào tạo nhân viên về bảo mật thông tin</li>
+                </ul>
+
+                <h3>4. Chia sẻ thông tin</h3>
+                <p>Chúng tôi chỉ chia sẻ thông tin của bạn với:</p>
+                <ul>
+                    <li><strong>Đối tác vận chuyển:</strong> Để giao hàng</li>
+                    <li><strong>Đối tác thanh toán:</strong> Để xử lý giao dịch</li>
+                    <li><strong>Cơ quan pháp luật:</strong> Khi có yêu cầu hợp pháp</li>
+                    <li><strong>Đối tác marketing:</strong> Chỉ khi có sự đồng ý của bạn</li>
+                </ul>
+                <p>Chúng tôi KHÔNG bán thông tin cá nhân của bạn cho bên thứ ba.</p>
+
+                <h3>5. Quyền của người dùng</h3>
+                <p>Bạn có quyền:</p>
+                <ul>
+                    <li>Truy cập và xem thông tin cá nhân của mình</li>
+                    <li>Yêu cầu chỉnh sửa thông tin không chính xác</li>
+                    <li>Yêu cầu xóa tài khoản và dữ liệu</li>
+                    <li>Từ chối nhận email marketing</li>
+                    <li>Rút lại sự đồng ý xử lý dữ liệu</li>
+                    <li>Khiếu nại về việc xử lý dữ liệu</li>
+                </ul>
+
+                <h3>6. Cookies</h3>
+                <p>Website sử dụng cookies để:</p>
+                <ul>
+                    <li>Ghi nhớ đăng nhập và giỏ hàng</li>
+                    <li>Phân tích lưu lượng truy cập</li>
+                    <li>Cá nhân hóa nội dung</li>
+                    <li>Hiển thị quảng cáo phù hợp</li>
+                </ul>
+                <p>Bạn có thể tắt cookies trong cài đặt trình duyệt, nhưng một số tính năng có thể không hoạt động.</p>
+
+                <h3>7. Lưu trữ dữ liệu</h3>
+                <ul>
+                    <li>Dữ liệu được lưu trữ tại máy chủ an toàn</li>
+                    <li>Thời gian lưu trữ: Theo quy định pháp luật hoặc cho đến khi bạn yêu cầu xóa</li>
+                    <li>Dữ liệu thanh toán không được lưu trữ trên hệ thống của chúng tôi</li>
+                </ul>
+
+                <h3>8. Bảo vệ trẻ em</h3>
+                <p>Dịch vụ của chúng tôi không dành cho trẻ em dưới 13 tuổi. Chúng tôi không cố ý thu thập thông tin từ trẻ em.</p>
+
+                <h3>9. Liên kết bên thứ ba</h3>
+                <p>Website có thể chứa liên kết đến các trang web khác. Chúng tôi không chịu trách nhiệm về chính sách bảo mật của các trang web đó.</p>
+
+                <h3>10. Thay đổi chính sách</h3>
+                <p>Chính sách này có thể được cập nhật. Chúng tôi sẽ thông báo về các thay đổi quan trọng qua email hoặc thông báo trên website.</p>
+
+                <h3>11. Liên hệ</h3>
+                <p>Nếu có câu hỏi về chính sách bảo mật, vui lòng liên hệ:</p>
+                <ul>
+                    <li>Email: privacy@adidasshop.com</li>
+                    <li>Hotline: 1900-xxxx</li>
+                    <li>Địa chỉ: [Địa chỉ công ty]</li>
+                </ul>
+
+                <p><em>Cập nhật lần cuối: Tháng 1, 2026</em></p>
             </div>
         </div>
     </div>

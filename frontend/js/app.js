@@ -1,5 +1,6 @@
 // State Management
 let products = [];
+let categories = [];
 let cart = [];
 let currentEditId = null;
 let currentUser = null;
@@ -7,6 +8,7 @@ let currentUser = null;
 // Initialize app
 document.addEventListener('DOMContentLoaded', () => {
     checkAuth();
+    loadCategories();
     loadProducts();
     loadCart();
     setupEventListeners();
@@ -17,6 +19,7 @@ document.addEventListener('DOMContentLoaded', () => {
 async function checkAuth() {
     const token = localStorage.getItem('userToken');
     const authNav = document.getElementById('authNav');
+    const isAdmin = localStorage.getItem('isAdmin') === 'true';
     
     if (token) {
         try {
@@ -29,11 +32,21 @@ async function checkAuth() {
                 currentUser = data;
                 
                 const name = data.customer?.name || data.user.email.split('@')[0];
-                authNav.innerHTML = `
-                    <a href="profile.html" class="btn-login">👤 ${name}</a>
-                `;
+                
+                // Nếu là admin, hiển thị thêm nút Quản trị
+                if (isAdmin) {
+                    authNav.innerHTML = `
+                        <a href="admin.html" class="btn-admin" style="background: #ff6b00; color: white; padding: 8px 16px; border-radius: 4px; text-decoration: none; margin-right: 10px;">⚙️ Quản trị</a>
+                        <a href="profile.html" class="btn-login">👤 ${name}</a>
+                    `;
+                } else {
+                    authNav.innerHTML = `
+                        <a href="profile.html" class="btn-login">👤 ${name}</a>
+                    `;
+                }
             } else {
                 localStorage.removeItem('userToken');
+                localStorage.removeItem('isAdmin');
             }
         } catch (error) {
             console.error('Auth check error:', error);
@@ -60,14 +73,18 @@ function setupEventListeners() {
 // Navigation
 function setupNavigation() {
     document.querySelectorAll('nav a').forEach(link => {
-        // Bỏ qua link đăng nhập (external link)
-        if (link.classList.contains('btn-login')) {
+        const href = link.getAttribute('href');
+        
+        // Bỏ qua các link external (đăng nhập, liên hệ, admin)
+        if (link.classList.contains('btn-login') || 
+            link.classList.contains('btn-admin') ||
+            href.includes('.html')) {
             return; // Cho phép link này hoạt động bình thường
         }
         
         link.addEventListener('click', (e) => {
             e.preventDefault();
-            const target = e.target.getAttribute('href').substring(1);
+            const target = href.substring(1);
             showSection(target);
         });
     });
@@ -109,6 +126,34 @@ function scrollToProducts() {
     document.getElementById('products').scrollIntoView({ behavior: 'smooth' });
 }
 
+// Load categories
+async function loadCategories() {
+    try {
+        const response = await fetch('http://localhost:3001/api/categories');
+        if (!response.ok) throw new Error('Failed to load categories');
+        
+        categories = await response.json();
+        renderCategoryFilter();
+    } catch (error) {
+        console.error('Load categories error:', error);
+        // Fallback to default categories if API fails
+        categories = [
+            { id: 1, name: 'Giày chạy bộ' },
+            { id: 2, name: 'Giày bóng đá' },
+            { id: 3, name: 'Giày lifestyle' },
+            { id: 4, name: 'Giày bóng rổ' }
+        ];
+        renderCategoryFilter();
+    }
+}
+
+// Render category filter
+function renderCategoryFilter() {
+    const categoryFilter = document.getElementById('category-filter');
+    categoryFilter.innerHTML = '<option value="">Tất cả danh mục</option>' +
+        categories.map(cat => `<option value="${cat.id}">${cat.name}</option>`).join('');
+}
+
 // Load products
 async function loadProducts() {
     try {
@@ -133,7 +178,7 @@ function renderProducts(productsToRender) {
         <div class="product-card" onclick="viewProductDetail(${product.id})">
             <img src="${product.image}" alt="${product.name}" class="product-image" onerror="this.src='https://via.placeholder.com/300x250?text=Adidas'">
             <div class="product-info">
-                <div class="product-category">${getCategoryName(product.category)}</div>
+                <div class="product-category">${getCategoryNameById(product.category_id)}</div>
                 <h3 class="product-name">${product.name}</h3>
                 <p class="product-description">${product.description}</p>
                 <div class="product-price">${formatPrice(product.price)} VNĐ</div>
@@ -156,13 +201,13 @@ function viewProductDetail(productId) {
 // Filter products
 function filterProducts() {
     const searchTerm = document.getElementById('search-input').value.toLowerCase();
-    const category = document.getElementById('category-filter').value;
+    const categoryId = document.getElementById('category-filter').value;
     const sortBy = document.getElementById('sort-filter').value;
     
     let filtered = products.filter(product => {
         const matchSearch = product.name.toLowerCase().includes(searchTerm) || 
                           product.description.toLowerCase().includes(searchTerm);
-        const matchCategory = !category || product.category === category;
+        const matchCategory = !categoryId || product.category_id == categoryId;
         return matchSearch && matchCategory;
     });
     
@@ -256,14 +301,22 @@ async function renderCart() {
             <div class="cart-item-info">
                 <h3>${item.product.name}</h3>
                 <p>${formatPrice(item.product.price)} VNĐ</p>
+                <div style="margin-top: 10px;">
+                    <label style="font-size: 14px; color: #666; margin-right: 8px;">Size:</label>
+                    <select onchange="updateSize(${item.id}, this.value)" style="padding: 5px 10px; border: 1px solid #ddd; border-radius: 4px;">
+                        ${[38, 39, 40, 41, 42, 43, 44, 45].map(size => 
+                            `<option value="${size}" ${item.size == size ? 'selected' : ''}>${size}</option>`
+                        ).join('')}
+                    </select>
+                </div>
             </div>
             <div class="cart-item-actions">
                 <div class="quantity-control">
-                    <button onclick="updateQuantity(${item.product.id}, ${item.quantity - 1})">-</button>
+                    <button onclick="updateQuantity(${item.id}, ${item.quantity - 1})">-</button>
                     <span>${item.quantity}</span>
-                    <button onclick="updateQuantity(${item.product.id}, ${item.quantity + 1})">+</button>
+                    <button onclick="updateQuantity(${item.id}, ${item.quantity + 1})">+</button>
                 </div>
-                <button class="btn-remove" onclick="removeFromCart(${item.product.id})">Xóa</button>
+                <button class="btn-remove" onclick="removeFromCart(${item.id})">Xóa</button>
             </div>
         </div>
     `).join('');
@@ -272,14 +325,14 @@ async function renderCart() {
     document.getElementById('total-price').textContent = formatPrice(total);
 }
 
-async function updateQuantity(productId, quantity) {
+async function updateQuantity(cartId, quantity) {
     if (quantity < 1) return;
     
     const token = localStorage.getItem('userToken');
     if (!token) return;
     
     try {
-        const response = await fetch(`http://localhost:3001/api/customer/cart/${productId}`, {
+        const response = await fetch(`http://localhost:3001/api/customer/cart/${cartId}`, {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',
@@ -299,12 +352,38 @@ async function updateQuantity(productId, quantity) {
     }
 }
 
-async function removeFromCart(productId) {
+async function updateSize(cartId, size) {
     const token = localStorage.getItem('userToken');
     if (!token) return;
     
     try {
-        const response = await fetch(`http://localhost:3001/api/customer/cart/${productId}`, {
+        const response = await fetch(`http://localhost:3001/api/customer/cart/${cartId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ size })
+        });
+        
+        if (!response.ok) {
+            throw new Error('Lỗi cập nhật size');
+        }
+        
+        await renderCart();
+        showSuccess('Đã cập nhật size giày');
+    } catch (error) {
+        console.error('Update size error:', error);
+        showError('Lỗi cập nhật size', error.message);
+    }
+}
+
+async function removeFromCart(cartId) {
+    const token = localStorage.getItem('userToken');
+    if (!token) return;
+    
+    try {
+        const response = await fetch(`http://localhost:3001/api/customer/cart/${cartId}`, {
             method: 'DELETE',
             headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -356,7 +435,7 @@ function renderAdminProducts(products) {
         <div class="admin-product-item">
             <div>
                 <h3>${product.name}</h3>
-                <p>${getCategoryName(product.category)} - ${formatPrice(product.price)} VNĐ - Còn: ${product.stock}</p>
+                <p>${getCategoryNameById(product.category_id)} - ${formatPrice(product.price)} VNĐ - Còn: ${product.stock}</p>
             </div>
             <div class="admin-product-actions">
                 <button class="btn-edit" onclick="editProduct(${product.id})">Sửa</button>
@@ -446,6 +525,11 @@ function getCategoryName(category) {
         'basketball': 'Giày bóng rổ'
     };
     return categories[category] || category;
+}
+
+function getCategoryNameById(categoryId) {
+    const category = categories.find(cat => cat.id == categoryId);
+    return category ? category.name : 'Chưa phân loại';
 }
 
 function showError(title, message) {

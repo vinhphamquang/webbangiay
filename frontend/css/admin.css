@@ -60,6 +60,31 @@ body {
 .sidebar-footer {
     padding: 20px;
     border-top: 1px solid #333;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.btn-home {
+    width: 100%;
+    padding: 10px;
+    background: #000000;
+    color: white;
+    border: 2px solid #000000;
+    text-align: center;
+    text-decoration: none;
+    font-weight: 700;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.3s;
+    display: block;
+}
+
+.btn-home:hover {
+    background: white;
+    color: #000000;
 }
 
 .btn-logout {
@@ -67,13 +92,18 @@ body {
     padding: 10px;
     background: #dc3545;
     color: white;
-    border: none;
-    border-radius: 5px;
+    border: 2px solid #dc3545;
+    font-weight: 700;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
     cursor: pointer;
+    transition: all 0.3s;
 }
 
 .btn-logout:hover {
     background: #c82333;
+    border-color: #c82333;
 }
 
 /* Main Content */

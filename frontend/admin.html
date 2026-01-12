@@ -32,8 +32,12 @@
                 <a href="#reviews" class="nav-item" data-page="reviews">
                     <span>⭐</span> Đánh giá
                 </a>
+                <a href="#contacts" class="nav-item" data-page="contacts">
+                    <span>📞</span> Liên hệ
+                </a>
             </nav>
             <div class="sidebar-footer">
+                <a href="index.html" class="btn-home">← Trang chủ</a>
                 <button id="logoutBtn" class="btn-logout">Đăng xuất</button>
             </div>
         </aside>
@@ -66,6 +70,10 @@
                         <div class="stat-card">
                             <h3>Doanh thu</h3>
                             <p class="stat-value" id="totalRevenue">0đ</p>
+                        </div>
+                        <div class="stat-card">
+                            <h3>Liên hệ chờ xử lý</h3>
+                            <p class="stat-value" id="pendingContacts">0</p>
                         </div>
                     </div>
 
@@ -124,6 +132,19 @@
                     </div>
                     <div id="reviewsList"></div>
                 </div>
+
+                <!-- Contacts Page -->
+                <div id="contacts-page" class="page">
+                    <div class="filters">
+                        <select id="contactStatusFilter">
+                            <option value="">Tất cả trạng thái</option>
+                            <option value="pending">Chờ xử lý</option>
+                            <option value="processing">Đang xử lý</option>
+                            <option value="completed">Hoàn thành</option>
+                        </select>
+                    </div>
+                    <div id="contactsList"></div>
+                </div>
             </div>
         </main>
     </div>
@@ -154,6 +175,15 @@
             <span class="close">&times;</span>
             <h2>Chi tiết đơn hàng</h2>
             <div id="orderDetail"></div>
+        </div>
+    </div>
+
+    <!-- Modal for Contact Detail -->
+    <div id="contactModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Chi tiết liên hệ</h2>
+            <div id="contactDetail"></div>
         </div>
     </div>
 

@@ -2,15 +2,15 @@ USE quanlyshopgiay;
 
 -- Dữ liệu cho Users (password: 123456)
 INSERT INTO users (email, password, role) VALUES
-('admin@adidas.com', '$2a$10$YourHashedPasswordHere', 'admin'),
-('nguyenvanan@gmail.com', '$2a$10$YourHashedPasswordHere', 'customer'),
-('tranthibinh@gmail.com', '$2a$10$YourHashedPasswordHere', 'customer'),
-('lehoangcuong@gmail.com', '$2a$10$YourHashedPasswordHere', 'customer'),
-('phamthidung@gmail.com', '$2a$10$YourHashedPasswordHere', 'customer'),
-('hoangvanem@gmail.com', '$2a$10$YourHashedPasswordHere', 'customer'),
-('vuthiphuong@gmail.com', '$2a$10$YourHashedPasswordHere', 'customer'),
-('dangvangiang@gmail.com', '$2a$10$YourHashedPasswordHere', 'customer'),
-('buithihoa@gmail.com', '$2a$10$YourHashedPasswordHere', 'customer');
+('admin@adidas.com', '$2a$10$SNb2Aq0hOi08D0GAYlL0nO8ZbHEJuvoEXAVXk1a93cepfQkfNbSU.', 'admin'),
+('nguyenvanan@gmail.com', '$2a$10$SNb2Aq0hOi08D0GAYlL0nO8ZbHEJuvoEXAVXk1a93cepfQkfNbSU.', 'customer'),
+('tranthibinh@gmail.com', '$2a$10$SNb2Aq0hOi08D0GAYlL0nO8ZbHEJuvoEXAVXk1a93cepfQkfNbSU.', 'customer'),
+('lehoangcuong@gmail.com', '$2a$10$SNb2Aq0hOi08D0GAYlL0nO8ZbHEJuvoEXAVXk1a93cepfQkfNbSU.', 'customer'),
+('phamthidung@gmail.com', '$2a$10$SNb2Aq0hOi08D0GAYlL0nO8ZbHEJuvoEXAVXk1a93cepfQkfNbSU.', 'customer'),
+('hoangvanem@gmail.com', '$2a$10$SNb2Aq0hOi08D0GAYlL0nO8ZbHEJuvoEXAVXk1a93cepfQkfNbSU.', 'customer'),
+('vuthiphuong@gmail.com', '$2a$10$SNb2Aq0hOi08D0GAYlL0nO8ZbHEJuvoEXAVXk1a93cepfQkfNbSU.', 'customer'),
+('dangvangiang@gmail.com', '$2a$10$SNb2Aq0hOi08D0GAYlL0nO8ZbHEJuvoEXAVXk1a93cepfQkfNbSU.', 'customer'),
+('buithihoa@gmail.com', '$2a$10$SNb2Aq0hOi08D0GAYlL0nO8ZbHEJuvoEXAVXk1a93cepfQkfNbSU.', 'customer');
 
 -- Dữ liệu cho Categories
 INSERT INTO categories (name, description) VALUES

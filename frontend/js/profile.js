@@ -38,6 +38,12 @@ function displayUserInfo() {
     document.getElementById('userName').textContent = name;
     document.getElementById('userEmail').textContent = email;
     document.getElementById('avatarInitial').textContent = name.charAt(0).toUpperCase();
+    
+    // Show admin link if user is admin
+    const isAdmin = localStorage.getItem('isAdmin') === 'true';
+    if (isAdmin) {
+        document.getElementById('adminNavLink').style.display = 'block';
+    }
 }
 
 // Load profile data
@@ -356,6 +362,8 @@ document.getElementById('logoutBtn').addEventListener('click', (e) => {
     e.preventDefault();
     localStorage.removeItem('userToken');
     localStorage.removeItem('customerId');
+    localStorage.removeItem('adminToken');
+    localStorage.removeItem('isAdmin');
     window.location.href = 'login.html';
 });
 
