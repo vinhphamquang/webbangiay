@@ -22,6 +22,43 @@
         .info-title { margin-bottom: 25px; color: #000; font-size: 24px; font-weight: 700; }
         .info-item { margin-bottom: 18px; color: #333; line-height: 1.8; font-size: 16px; }
         .info-item strong { color: #000; margin-right: 10px; font-weight: 700; }
+        .notification-item { background: #f8f9fa; border-left: 4px solid #4CAF50; padding: 20px; margin-bottom: 20px; border-radius: 4px; cursor: pointer; transition: all 0.3s; }
+        .notification-item:hover { background: #e8f5e9; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .notification-item.unread { background: #e8f5e9; }
+        .notification-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .notification-subject { font-weight: 700; font-size: 18px; color: #000; }
+        .notification-date { font-size: 13px; color: #666; }
+        .notification-preview { color: #666; font-size: 14px; margin-top: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .notification-message { background: white; padding: 15px; border-radius: 4px; margin: 10px 0; color: #333; white-space: pre-wrap; }
+        .notification-reply { background: #fff; padding: 15px; border-radius: 4px; border-left: 3px solid #4CAF50; margin-top: 10px; }
+        .notification-reply-label { font-weight: 600; color: #4CAF50; margin-bottom: 8px; font-size: 14px; }
+        .notification-reply-text { color: #333; white-space: pre-wrap; line-height: 1.6; }
+        .no-notifications { text-align: center; padding: 40px; color: #999; font-size: 16px; }
+        
+        /* Modal styles */
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); }
+        .modal.show { display: flex; align-items: center; justify-content: center; }
+        .modal-content { background: white; padding: 30px; border-radius: 8px; max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto; position: relative; }
+        .modal-close { position: absolute; top: 15px; right: 20px; font-size: 28px; font-weight: bold; color: #999; cursor: pointer; }
+        .modal-close:hover { color: #000; }
+        .modal-title { font-size: 24px; font-weight: 700; margin-bottom: 20px; color: #000; }
+        .modal-section { margin-bottom: 20px; }
+        .modal-label { font-weight: 600; color: #666; margin-bottom: 8px; font-size: 14px; }
+        .modal-text { background: #f8f9fa; padding: 15px; border-radius: 4px; white-space: pre-wrap; line-height: 1.6; }
+        .modal-reply-box { background: #e8f5e9; border-left: 4px solid #4CAF50; padding: 20px; border-radius: 4px; }
+        .btn-mark-read { background: #4CAF50; color: white; border: none; padding: 12px 30px; border-radius: 4px; font-size: 15px; font-weight: 600; cursor: pointer; transition: background 0.3s; }
+        .btn-mark-read:hover { background: #45a049; }
+        
+        /* Tabs */
+        .notification-tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #eee; }
+        .notification-tab { padding: 12px 24px; background: none; border: none; font-size: 16px; font-weight: 600; color: #666; cursor: pointer; border-bottom: 3px solid transparent; transition: all 0.3s; }
+        .notification-tab:hover { color: #000; }
+        .notification-tab.active { color: #000; border-bottom-color: #000; }
+        .notification-tab-badge { background: #f44336; color: white; border-radius: 50%; padding: 2px 8px; font-size: 12px; margin-left: 6px; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .history-item { opacity: 0.85; }
+        .history-item:hover { opacity: 1; }
     </style>
 </head>
 <body>
@@ -83,6 +120,31 @@
                 <button type="submit" class="submit-btn">Gửi yêu cầu</button>
             </form>
 
+            <!-- Notification Section for Logged-in Users -->
+            <div id="notificationSection" style="display: none; margin-top: 50px; padding-top: 40px; border-top: 2px solid #eee;">
+                <h3 class="info-title">📬 Phản hồi từ chúng tôi</h3>
+                
+                <!-- Tabs -->
+                <div class="notification-tabs">
+                    <button class="notification-tab active" onclick="switchTab('new')">
+                        🔔 Mới <span class="notification-tab-badge" id="newCount">0</span>
+                    </button>
+                    <button class="notification-tab" onclick="switchTab('history')">
+                        📋 Lịch sử
+                    </button>
+                </div>
+                
+                <!-- New notifications -->
+                <div id="newTab" class="tab-content active">
+                    <div id="notificationList"></div>
+                </div>
+                
+                <!-- History -->
+                <div id="historyTab" class="tab-content">
+                    <div id="historyList"></div>
+                </div>
+            </div>
+
             <div class="info-section">
                 <h3 class="info-title">Thông tin liên hệ</h3>
                 <p class="info-item"><strong>📍 Địa chỉ:</strong> 123 Nguyễn Huệ, Quận 1, TP.HCM</p>
@@ -94,8 +156,52 @@
     </div>
 
     <footer>
-        <div class="container">
-            <p>&copy; 2026 Adidas Shop. All rights reserved.</p>
+        <div class="footer-content">
+            <div class="footer-section">
+                <h3 class="footer-title">ADIDAS SHOP</h3>
+                <p class="footer-description">Chuyên cung cấp giày thể thao Adidas chính hãng với đa dạng mẫu mã, phong cách và chất lượng đỉnh cao.</p>
+                <div class="footer-social">
+                    <a href="#" class="social-link">Facebook</a>
+                    <a href="#" class="social-link">Instagram</a>
+                    <a href="#" class="social-link">Twitter</a>
+                </div>
+            </div>
+            
+            <div class="footer-section">
+                <h4 class="footer-heading">SẢN PHẨM</h4>
+                <ul class="footer-links">
+                    <li><a href="index.html#products">Giày chạy bộ</a></li>
+                    <li><a href="index.html#products">Giày bóng đá</a></li>
+                    <li><a href="index.html#products">Giày lifestyle</a></li>
+                    <li><a href="index.html#products">Giày bóng rổ</a></li>
+                </ul>
+            </div>
+            
+            <div class="footer-section">
+                <h4 class="footer-heading">HỖ TRỢ</h4>
+                <ul class="footer-links">
+                    <li><a href="contact.html">Liên hệ tư vấn</a></li>
+                    <li><a href="index.html#cart">Giỏ hàng</a></li>
+                    <li><a href="profile.html">Tài khoản</a></li>
+                    <li><a href="#">Chính sách đổi trả</a></li>
+                </ul>
+            </div>
+            
+            <div class="footer-section">
+                <h4 class="footer-heading">LIÊN HỆ</h4>
+                <ul class="footer-info">
+                    <li>📍 123 Nguyễn Huệ, Q.1, TP.HCM</li>
+                    <li>📞 Hotline: 1900 xxxx</li>
+                    <li>📧 Email: support@adidas-shop.vn</li>
+                    <li>🕐 8:00 - 22:00 (Thứ 2 - CN)</li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="footer-bottom">
+            <div class="container">
+                <p>&copy; 2026 Adidas Shop. All rights reserved. | Thiết kế bởi Adidas Vietnam</p>
+            </div>
         </div>
     </footer>
 
@@ -106,6 +212,8 @@
         window.addEventListener('load', async function() {
             await loadUserInfo();
             await loadCartCount();
+            await loadNotifications();
+            await loadHistory();
         });
 
         // Load user info and auto-fill form
@@ -169,6 +277,200 @@
                 }
             } catch (error) {
                 console.error('Load cart error:', error);
+            }
+        }
+
+        // Load notifications
+        async function loadNotifications() {
+            const token = localStorage.getItem('userToken');
+            if (!token) return;
+            
+            try {
+                const response = await fetch(API_URL + '/customer/contact-replies', {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                
+                if (response.ok) {
+                    const replies = await response.json();
+                    
+                    const notificationSection = document.getElementById('notificationSection');
+                    const notificationList = document.getElementById('notificationList');
+                    const newCount = document.getElementById('newCount');
+                    
+                    if (replies.length > 0) {
+                        notificationSection.style.display = 'block';
+                        newCount.textContent = replies.length;
+                        
+                        const html = replies.map(function(reply) {
+                            return '<div class="notification-item" onclick="showNotificationDetail(' + reply.id + ', false)" data-id="' + reply.id + '">' +
+                                '<div class="notification-header">' +
+                                    '<div class="notification-subject">📩 ' + reply.subject + '</div>' +
+                                    '<div class="notification-date">' + new Date(reply.reply_date).toLocaleString('vi-VN') + '</div>' +
+                                '</div>' +
+                                '<div class="notification-preview">✓ Đã có phản hồi - Click để xem chi tiết</div>' +
+                            '</div>';
+                        }).join('');
+                        
+                        notificationList.innerHTML = html;
+                        
+                        // Store replies data globally
+                        window.notificationReplies = replies;
+                    } else {
+                        notificationSection.style.display = 'block';
+                        newCount.textContent = '0';
+                        notificationList.innerHTML = '<div class="no-notifications">Không có phản hồi mới</div>';
+                    }
+                }
+            } catch (error) {
+                console.error('Load notifications error:', error);
+            }
+        }
+
+        // Load history
+        async function loadHistory() {
+            const token = localStorage.getItem('userToken');
+            if (!token) return;
+            
+            try {
+                const response = await fetch(API_URL + '/customer/contact-history', {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                
+                if (response.ok) {
+                    const history = await response.json();
+                    const historyList = document.getElementById('historyList');
+                    
+                    if (history.length > 0) {
+                        const html = history.map(function(reply) {
+                            return '<div class="notification-item history-item" onclick="showNotificationDetail(' + reply.id + ', true)" data-id="' + reply.id + '">' +
+                                '<div class="notification-header">' +
+                                    '<div class="notification-subject">📩 ' + reply.subject + '</div>' +
+                                    '<div class="notification-date">' + new Date(reply.reply_date).toLocaleString('vi-VN') + '</div>' +
+                                '</div>' +
+                                '<div class="notification-preview">✓ Đã đọc - Click để xem lại</div>' +
+                            '</div>';
+                        }).join('');
+                        
+                        historyList.innerHTML = html;
+                        
+                        // Store history data globally
+                        window.historyReplies = history;
+                    } else {
+                        historyList.innerHTML = '<div class="no-notifications">Chưa có lịch sử phản hồi</div>';
+                    }
+                }
+            } catch (error) {
+                console.error('Load history error:', error);
+            }
+        }
+
+        // Switch tabs
+        function switchTab(tab) {
+            // Update tab buttons
+            document.querySelectorAll('.notification-tab').forEach(function(btn) {
+                btn.classList.remove('active');
+            });
+            event.target.closest('.notification-tab').classList.add('active');
+            
+            // Update tab content
+            document.querySelectorAll('.tab-content').forEach(function(content) {
+                content.classList.remove('active');
+            });
+            
+            if (tab === 'new') {
+                document.getElementById('newTab').classList.add('active');
+            } else {
+                document.getElementById('historyTab').classList.add('active');
+            }
+        }
+
+        // Show notification detail in modal
+        function showNotificationDetail(id, isHistory) {
+            const replies = isHistory ? window.historyReplies : window.notificationReplies;
+            const reply = replies.find(function(r) { return r.id === id; });
+            if (!reply) return;
+            
+            const modalHtml = '<div class="modal show" id="notificationModal">' +
+                '<div class="modal-content">' +
+                    '<span class="modal-close" onclick="closeNotificationModal()">&times;</span>' +
+                    '<h2 class="modal-title">📩 ' + reply.subject + '</h2>' +
+                    '<div class="modal-section">' +
+                        '<div class="modal-label">Ngày gửi:</div>' +
+                        '<div>' + new Date(reply.created_at).toLocaleString('vi-VN') + '</div>' +
+                    '</div>' +
+                    '<div class="modal-section">' +
+                        '<div class="modal-label">Câu hỏi của bạn:</div>' +
+                        '<div class="modal-text">' + reply.message + '</div>' +
+                    '</div>' +
+                    '<div class="modal-section">' +
+                        '<div class="modal-reply-box">' +
+                            '<div class="modal-label" style="color: #4CAF50; font-size: 16px; margin-bottom: 10px;">✓ Phản hồi từ Admin:</div>' +
+                            '<div class="modal-text" style="background: white;">' + reply.admin_reply + '</div>' +
+                            '<div style="margin-top: 10px; font-size: 13px; color: #666;">Ngày trả lời: ' + new Date(reply.reply_date).toLocaleString('vi-VN') + '</div>' +
+                        '</div>' +
+                    '</div>' +
+                    (isHistory ? 
+                        '<div style="margin-top: 20px; text-align: center; color: #666; font-size: 14px;">✓ Đã đọc</div>' :
+                        '<div style="margin-top: 20px; text-align: center;">' +
+                            '<button onclick="markAsRead(' + reply.id + ')" style="background: #4CAF50; color: white; border: none; padding: 12px 30px; border-radius: 4px; font-size: 15px; font-weight: 600; cursor: pointer;">✓ Đánh dấu đã đọc</button>' +
+                        '</div>'
+                    ) +
+                '</div>' +
+            '</div>';
+            
+            // Remove existing modal if any
+            const existingModal = document.getElementById('notificationModal');
+            if (existingModal) existingModal.remove();
+            
+            // Add modal to body
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+            
+            // Close on background click
+            document.getElementById('notificationModal').addEventListener('click', function(e) {
+                if (e.target === this) closeNotificationModal();
+            });
+        }
+
+        function closeNotificationModal() {
+            const modal = document.getElementById('notificationModal');
+            if (modal) modal.remove();
+        }
+
+        // Mark notification as read
+        async function markAsRead(id) {
+            const token = localStorage.getItem('userToken');
+            if (!token) return;
+            
+            try {
+                const response = await fetch(API_URL + '/customer/contact-replies/' + id + '/mark-read', {
+                    method: 'PUT',
+                    headers: { 
+                        'Authorization': 'Bearer ' + token,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    // Close modal
+                    closeNotificationModal();
+                    
+                    // Show success message
+                    alert('✓ Đã đánh dấu đã đọc!');
+                    
+                    // Reload notifications and history
+                    await loadNotifications();
+                    await loadHistory();
+                    
+                    // Update badge count
+                    if (window.loadNotificationCount) {
+                        window.loadNotificationCount();
+                    }
+                } else {
+                    alert('❌ Lỗi đánh dấu đã đọc');
+                }
+            } catch (error) {
+                console.error('Mark as read error:', error);
+                alert('❌ Lỗi kết nối');
             }
         }
 

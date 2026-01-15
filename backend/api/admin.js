@@ -141,17 +141,28 @@ router.get('/products', async (req, res) => {
         const offset = (page - 1) * limit;
 
         const [products] = await pool.query(`
-            SELECT p.*, c.name as category_name 
+            SELECT 
+                p.*, 
+                c.name as category_name,
+                COALESCE(SUM(pv.stock), 0) as total_stock
             FROM products p 
             LEFT JOIN categories c ON p.category_id = c.id
+            LEFT JOIN product_variants pv ON p.id = pv.product_id
+            GROUP BY p.id
             ORDER BY p.id DESC
             LIMIT ? OFFSET ?
         `, [limit, offset]);
 
+        // Map products to include total_stock as stock
+        const productsWithStock = products.map(p => ({
+            ...p,
+            stock: parseInt(p.total_stock) || 0
+        }));
+
         const [total] = await pool.query('SELECT COUNT(*) as count FROM products');
 
         res.json({
-            products,
+            products: productsWithStock,
             pagination: {
                 page,
                 limit,
@@ -351,9 +362,16 @@ router.get('/orders/:id', async (req, res) => {
         }
 
         const [items] = await pool.query(`
-            SELECT oi.*, p.name as product_name, p.image
+            SELECT 
+                oi.*, 
+                p.name as product_name, 
+                p.image,
+                pv.size,
+                pv.color,
+                pv.color_code
             FROM order_items oi
             LEFT JOIN products p ON oi.product_id = p.id
+            LEFT JOIN product_variants pv ON oi.variant_id = pv.id
             WHERE oi.order_id = ?
         `, [req.params.id]);
 
@@ -390,28 +408,46 @@ router.put('/orders/:id/status', async (req, res) => {
 
         const oldStatus = orders[0].status;
 
-        // Lấy chi tiết đơn hàng
+        // Lấy chi tiết đơn hàng (bao gồm variant_id)
         const [orderItems] = await connection.query(
-            'SELECT product_id, quantity FROM order_items WHERE order_id = ?',
+            'SELECT product_id, variant_id, quantity FROM order_items WHERE order_id = ?',
             [req.params.id]
         );
 
         // Xử lý thay đổi tồn kho
         if (oldStatus !== 'completed' && status === 'completed') {
-            // Chuyển sang completed: GIẢM kho
+            // Chuyển sang completed: GIẢM kho từ variant
             for (const item of orderItems) {
-                await connection.query(
-                    'UPDATE products SET stock = stock - ? WHERE id = ?',
-                    [item.quantity, item.product_id]
-                );
+                if (item.variant_id) {
+                    // Giảm stock từ product_variants
+                    await connection.query(
+                        'UPDATE product_variants SET stock = stock - ? WHERE id = ?',
+                        [item.quantity, item.variant_id]
+                    );
+                } else {
+                    // Fallback: giảm từ products (cho đơn hàng cũ không có variant_id)
+                    await connection.query(
+                        'UPDATE products SET stock = stock - ? WHERE id = ?',
+                        [item.quantity, item.product_id]
+                    );
+                }
             }
         } else if (oldStatus === 'completed' && status !== 'completed') {
             // Chuyển từ completed sang trạng thái khác: HOÀN lại kho
             for (const item of orderItems) {
-                await connection.query(
-                    'UPDATE products SET stock = stock + ? WHERE id = ?',
-                    [item.quantity, item.product_id]
-                );
+                if (item.variant_id) {
+                    // Hoàn lại stock vào product_variants
+                    await connection.query(
+                        'UPDATE product_variants SET stock = stock + ? WHERE id = ?',
+                        [item.quantity, item.variant_id]
+                    );
+                } else {
+                    // Fallback: hoàn lại vào products
+                    await connection.query(
+                        'UPDATE products SET stock = stock + ? WHERE id = ?',
+                        [item.quantity, item.product_id]
+                    );
+                }
             }
         }
 
@@ -558,6 +594,83 @@ router.get('/dashboard', async (req, res) => {
     }
 });
 
+// GET /api/admin/revenue - Lấy doanh thu theo thời gian
+router.get('/revenue', async (req, res) => {
+    try {
+        const { period = 'month', year, month } = req.query;
+        
+        let query = '';
+        let params = [];
+        
+        if (period === 'week') {
+            // Doanh thu theo tuần trong tháng
+            const targetYear = year || new Date().getFullYear();
+            const targetMonth = month || (new Date().getMonth() + 1);
+            
+            query = `
+                SELECT 
+                    WEEK(order_date, 1) - WEEK(DATE_SUB(order_date, INTERVAL DAYOFMONTH(order_date)-1 DAY), 1) + 1 as week_number,
+                    DATE_FORMAT(MIN(order_date), '%d/%m') as start_date,
+                    DATE_FORMAT(MAX(order_date), '%d/%m') as end_date,
+                    COUNT(*) as order_count,
+                    SUM(total_amount) as revenue
+                FROM orders
+                WHERE status = 'completed'
+                    AND YEAR(order_date) = ?
+                    AND MONTH(order_date) = ?
+                GROUP BY week_number
+                ORDER BY week_number
+            `;
+            params = [targetYear, targetMonth];
+        } else if (period === 'month') {
+            // Doanh thu theo tháng trong năm
+            const targetYear = year || new Date().getFullYear();
+            
+            query = `
+                SELECT 
+                    MONTH(order_date) as month_number,
+                    DATE_FORMAT(order_date, '%m/%Y') as month_label,
+                    COUNT(*) as order_count,
+                    SUM(total_amount) as revenue
+                FROM orders
+                WHERE status = 'completed'
+                    AND YEAR(order_date) = ?
+                GROUP BY month_number, month_label
+                ORDER BY month_number
+            `;
+            params = [targetYear];
+        } else if (period === 'year') {
+            // Doanh thu theo năm
+            query = `
+                SELECT 
+                    YEAR(order_date) as year_number,
+                    COUNT(*) as order_count,
+                    SUM(total_amount) as revenue
+                FROM orders
+                WHERE status = 'completed'
+                GROUP BY year_number
+                ORDER BY year_number DESC
+                LIMIT 5
+            `;
+        }
+        
+        const [results] = await pool.query(query, params);
+        
+        res.json({
+            period,
+            year: year || new Date().getFullYear(),
+            month: month || (new Date().getMonth() + 1),
+            data: results.map(row => ({
+                ...row,
+                revenue: parseFloat(row.revenue || 0)
+            }))
+        });
+    } catch (error) {
+        console.error('Get revenue error:', error);
+        res.status(500).json({ error: 'Lỗi lấy doanh thu' });
+    }
+});
+
 // ============ QUẢN LÝ LIÊN HỆ ============
 
 // GET /api/admin/contacts - Lấy danh sách liên hệ
@@ -625,6 +738,32 @@ router.put('/contacts/:id/status', async (req, res) => {
     }
 });
 
+// PUT /api/admin/contacts/:id/reply - Trả lời liên hệ
+router.put('/contacts/:id/reply', async (req, res) => {
+    try {
+        const { admin_reply } = req.body;
+
+        if (!admin_reply || admin_reply.trim() === '') {
+            return res.status(400).json({ error: 'Nội dung trả lời không được để trống' });
+        }
+
+        const [result] = await pool.query(
+            'UPDATE contacts SET admin_reply = ?, reply_date = NOW(), status = "completed" WHERE id = ?',
+            [admin_reply, req.params.id]
+        );
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ error: 'Không tìm thấy liên hệ' });
+        }
+
+        const [contacts] = await pool.query('SELECT * FROM contacts WHERE id = ?', [req.params.id]);
+        res.json(contacts[0]);
+    } catch (error) {
+        console.error('Reply contact error:', error);
+        res.status(500).json({ error: 'Lỗi trả lời liên hệ' });
+    }
+});
+
 // DELETE /api/admin/contacts/:id - Xóa liên hệ
 router.delete('/contacts/:id', async (req, res) => {
     try {
@@ -638,6 +777,108 @@ router.delete('/contacts/:id', async (req, res) => {
     } catch (error) {
         console.error('Delete contact error:', error);
         res.status(500).json({ error: 'Lỗi xóa liên hệ' });
+    }
+});
+
+// ============ QUẢN LÝ VARIANTS (SIZE & MÀU) ============
+
+// GET /api/admin/products/:id/variants - Lấy tất cả variants của sản phẩm
+router.get('/products/:id/variants', async (req, res) => {
+    try {
+        const [variants] = await pool.query(`
+            SELECT id, product_id, size, color, color_code, stock
+            FROM product_variants
+            WHERE product_id = ?
+            ORDER BY 
+                CASE size
+                    WHEN '38' THEN 1
+                    WHEN '39' THEN 2
+                    WHEN '40' THEN 3
+                    WHEN '41' THEN 4
+                    WHEN '42' THEN 5
+                    WHEN '43' THEN 6
+                    WHEN '44' THEN 7
+                    WHEN '45' THEN 8
+                    ELSE 9
+                END,
+                color
+        `, [req.params.id]);
+
+        res.json(variants);
+    } catch (error) {
+        console.error('Get variants error:', error);
+        res.status(500).json({ error: 'Lỗi lấy danh sách variants' });
+    }
+});
+
+// POST /api/admin/products/:id/variants - Tạo variant mới
+router.post('/products/:id/variants', async (req, res) => {
+    try {
+        const { size, color, color_code, stock } = req.body;
+        
+        if (!size || !color || stock === undefined) {
+            return res.status(400).json({ error: 'Thiếu thông tin bắt buộc' });
+        }
+
+        const [result] = await pool.query(
+            'INSERT INTO product_variants (product_id, size, color, color_code, stock) VALUES (?, ?, ?, ?, ?)',
+            [req.params.id, size, color, color_code || '#000000', stock]
+        );
+
+        const [variants] = await pool.query('SELECT * FROM product_variants WHERE id = ?', [result.insertId]);
+        res.status(201).json(variants[0]);
+    } catch (error) {
+        if (error.code === 'ER_DUP_ENTRY') {
+            return res.status(400).json({ error: 'Variant này đã tồn tại' });
+        }
+        console.error('Create variant error:', error);
+        res.status(500).json({ error: 'Lỗi tạo variant' });
+    }
+});
+
+// PUT /api/admin/products/:id/variants/:variantId - Cập nhật variant
+router.put('/products/:id/variants/:variantId', async (req, res) => {
+    try {
+        const { size, color, color_code, stock } = req.body;
+
+        const [result] = await pool.query(
+            `UPDATE product_variants SET 
+                size = COALESCE(?, size),
+                color = COALESCE(?, color),
+                color_code = COALESCE(?, color_code),
+                stock = COALESCE(?, stock)
+            WHERE id = ? AND product_id = ?`,
+            [size, color, color_code, stock, req.params.variantId, req.params.id]
+        );
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ error: 'Không tìm thấy variant' });
+        }
+
+        const [variants] = await pool.query('SELECT * FROM product_variants WHERE id = ?', [req.params.variantId]);
+        res.json(variants[0]);
+    } catch (error) {
+        console.error('Update variant error:', error);
+        res.status(500).json({ error: 'Lỗi cập nhật variant' });
+    }
+});
+
+// DELETE /api/admin/products/:id/variants/:variantId - Xóa variant
+router.delete('/products/:id/variants/:variantId', async (req, res) => {
+    try {
+        const [result] = await pool.query(
+            'DELETE FROM product_variants WHERE id = ? AND product_id = ?',
+            [req.params.variantId, req.params.id]
+        );
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ error: 'Không tìm thấy variant' });
+        }
+
+        res.json({ message: 'Xóa variant thành công' });
+    } catch (error) {
+        console.error('Delete variant error:', error);
+        res.status(500).json({ error: 'Lỗi xóa variant' });
     }
 });
 

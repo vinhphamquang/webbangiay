@@ -55,9 +55,11 @@ router.put('/profile', async (req, res) => {
 router.get('/cart', async (req, res) => {
     try {
         const [rows] = await pool.query(`
-            SELECT c.*, p.name, p.price, p.image, p.stock
+            SELECT c.*, p.name, p.price, p.image, 
+                   v.size, v.color, v.color_code, v.stock as variant_stock
             FROM cart c
             JOIN products p ON c.product_id = p.id
+            LEFT JOIN product_variants v ON c.variant_id = v.id
             WHERE c.customer_id = ?
         `, [req.user.customerId]);
 
@@ -67,11 +69,16 @@ router.get('/cart', async (req, res) => {
                 id: row.product_id,
                 name: row.name,
                 price: parseFloat(row.price),
-                image: row.image,
-                stock: row.stock
+                image: row.image
             },
-            quantity: row.quantity,
-            size: row.size || '42'
+            variant: {
+                id: row.variant_id,
+                size: row.size || '42',
+                color: row.color || 'Đen',
+                color_code: row.color_code || '#000000',
+                stock: row.variant_stock || 0
+            },
+            quantity: row.quantity
         }));
 
         const total = items.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
@@ -86,45 +93,50 @@ router.get('/cart', async (req, res) => {
 // POST /api/customer/cart - Thêm sản phẩm vào giỏ hàng
 router.post('/cart', async (req, res) => {
     try {
-        const { productId, quantity, size } = req.body;
+        const { productId, quantity, variantId } = req.body;
 
-        if (!productId || !quantity || quantity < 1) {
+        if (!productId || !quantity || quantity < 1 || !variantId) {
             return res.status(400).json({ error: 'Thông tin không hợp lệ' });
         }
 
-        const selectedSize = size || '42';
-
-        // Kiểm tra sản phẩm và tồn kho
-        const [products] = await pool.query('SELECT * FROM products WHERE id = ?', [productId]);
+        // Kiểm tra variant và tồn kho
+        const [variants] = await pool.query(`
+            SELECT v.*, p.name as product_name, p.price
+            FROM product_variants v
+            JOIN products p ON v.product_id = p.id
+            WHERE v.id = ? AND v.product_id = ?
+        `, [variantId, productId]);
         
-        if (products.length === 0) {
-            return res.status(404).json({ error: 'Không tìm thấy sản phẩm' });
+        if (variants.length === 0) {
+            return res.status(404).json({ error: 'Không tìm thấy sản phẩm với size/màu này' });
         }
 
-        if (products[0].stock < quantity) {
-            return res.status(400).json({ error: 'Không đủ hàng trong kho' });
+        const variant = variants[0];
+
+        if (variant.stock < quantity) {
+            return res.status(400).json({ error: `Chỉ còn ${variant.stock} sản phẩm trong kho` });
         }
 
-        // Kiểm tra sản phẩm với size đã có trong giỏ hàng chưa
+        // Kiểm tra variant đã có trong giỏ hàng chưa
         const [existing] = await pool.query(
-            'SELECT * FROM cart WHERE customer_id = ? AND product_id = ? AND size = ?',
-            [req.user.customerId, productId, selectedSize]
+            'SELECT * FROM cart WHERE customer_id = ? AND variant_id = ?',
+            [req.user.customerId, variantId]
         );
 
         if (existing.length > 0) {
             const newQuantity = existing[0].quantity + quantity;
-            if (products[0].stock < newQuantity) {
-                return res.status(400).json({ error: 'Không đủ hàng trong kho' });
+            if (variant.stock < newQuantity) {
+                return res.status(400).json({ error: `Chỉ còn ${variant.stock} sản phẩm trong kho` });
             }
             
             await pool.query(
-                'UPDATE cart SET quantity = ? WHERE customer_id = ? AND product_id = ? AND size = ?',
-                [newQuantity, req.user.customerId, productId, selectedSize]
+                'UPDATE cart SET quantity = ? WHERE customer_id = ? AND variant_id = ?',
+                [newQuantity, req.user.customerId, variantId]
             );
         } else {
             await pool.query(
-                'INSERT INTO cart (customer_id, product_id, quantity, size) VALUES (?, ?, ?, ?)',
-                [req.user.customerId, productId, quantity, selectedSize]
+                'INSERT INTO cart (customer_id, product_id, variant_id, quantity, size, color) VALUES (?, ?, ?, ?, ?, ?)',
+                [req.user.customerId, productId, variantId, quantity, variant.size, variant.color]
             );
         }
 
@@ -158,10 +170,10 @@ router.post('/cart', async (req, res) => {
     }
 });
 
-// PUT /api/customer/cart/:id - Cập nhật số lượng và size
+// PUT /api/customer/cart/:id - Cập nhật số lượng hoặc đổi variant
 router.put('/cart/:id', async (req, res) => {
     try {
-        const { quantity, size } = req.body;
+        const { quantity, variantId } = req.body;
 
         if (quantity && quantity < 1) {
             return res.status(400).json({ error: 'Số lượng không hợp lệ' });
@@ -178,31 +190,63 @@ router.put('/cart/:id', async (req, res) => {
         }
 
         const cartItem = cartItems[0];
+        const targetVariantId = variantId || cartItem.variant_id;
 
-        // Kiểm tra tồn kho
-        const [products] = await pool.query('SELECT stock FROM products WHERE id = ?', [cartItem.product_id]);
-        
-        if (products.length === 0) {
-            return res.status(404).json({ error: 'Không tìm thấy sản phẩm' });
-        }
-
-        const newQuantity = quantity || cartItem.quantity;
-        const newSize = size || cartItem.size;
-
-        if (products[0].stock < newQuantity) {
-            return res.status(400).json({ error: 'Không đủ hàng trong kho' });
-        }
-
-        await pool.query(
-            'UPDATE cart SET quantity = ?, size = ? WHERE id = ? AND customer_id = ?',
-            [newQuantity, newSize, req.params.id, req.user.customerId]
+        // Kiểm tra tồn kho của variant
+        const [variants] = await pool.query(
+            'SELECT * FROM product_variants WHERE id = ?',
+            [targetVariantId]
         );
+        
+        if (variants.length === 0) {
+            return res.status(404).json({ error: 'Không tìm thấy variant' });
+        }
+
+        const variant = variants[0];
+        const newQuantity = quantity || cartItem.quantity;
+
+        if (variant.stock < newQuantity) {
+            return res.status(400).json({ error: `Chỉ còn ${variant.stock} sản phẩm trong kho` });
+        }
+
+        // Nếu đổi variant, kiểm tra xem variant mới đã có trong giỏ chưa
+        if (variantId && variantId !== cartItem.variant_id) {
+            const [existing] = await pool.query(
+                'SELECT * FROM cart WHERE customer_id = ? AND variant_id = ? AND id != ?',
+                [req.user.customerId, variantId, req.params.id]
+            );
+
+            if (existing.length > 0) {
+                // Merge vào item đã có
+                const totalQuantity = existing[0].quantity + newQuantity;
+                if (variant.stock < totalQuantity) {
+                    return res.status(400).json({ error: `Chỉ còn ${variant.stock} sản phẩm trong kho` });
+                }
+                
+                await pool.query('UPDATE cart SET quantity = ? WHERE id = ?', [totalQuantity, existing[0].id]);
+                await pool.query('DELETE FROM cart WHERE id = ?', [req.params.id]);
+            } else {
+                // Cập nhật variant mới
+                await pool.query(
+                    'UPDATE cart SET quantity = ?, variant_id = ?, size = ?, color = ? WHERE id = ? AND customer_id = ?',
+                    [newQuantity, variantId, variant.size, variant.color, req.params.id, req.user.customerId]
+                );
+            }
+        } else {
+            // Chỉ cập nhật số lượng
+            await pool.query(
+                'UPDATE cart SET quantity = ? WHERE id = ? AND customer_id = ?',
+                [newQuantity, req.params.id, req.user.customerId]
+            );
+        }
 
         // Trả về giỏ hàng đã cập nhật
         const [rows] = await pool.query(`
-            SELECT c.*, p.name, p.price, p.image, p.stock
+            SELECT c.*, p.name, p.price, p.image,
+                   v.size, v.color, v.color_code, v.stock as variant_stock
             FROM cart c
             JOIN products p ON c.product_id = p.id
+            LEFT JOIN product_variants v ON c.variant_id = v.id
             WHERE c.customer_id = ?
         `, [req.user.customerId]);
 
@@ -262,11 +306,12 @@ router.post('/orders', async (req, res) => {
 
         await connection.beginTransaction();
 
-        // Lấy giỏ hàng
+        // Lấy giỏ hàng (bao gồm variant_id và color)
         const [cartItems] = await connection.query(`
-            SELECT c.*, p.name, p.price, p.stock
+            SELECT c.*, p.name, p.price, pv.stock as variant_stock, pv.size, pv.color
             FROM cart c
             JOIN products p ON c.product_id = p.id
+            LEFT JOIN product_variants pv ON c.variant_id = pv.id
             WHERE c.customer_id = ?
         `, [req.user.customerId]);
 
@@ -275,11 +320,14 @@ router.post('/orders', async (req, res) => {
             return res.status(400).json({ error: 'Giỏ hàng trống' });
         }
 
-        // Kiểm tra tồn kho
+        // Kiểm tra tồn kho (từ variant nếu có)
         for (const item of cartItems) {
-            if (item.stock < item.quantity) {
+            const stock = item.variant_id ? item.variant_stock : item.stock;
+            if (stock < item.quantity) {
                 await connection.rollback();
-                return res.status(400).json({ error: `Không đủ hàng cho sản phẩm ${item.name}` });
+                return res.status(400).json({ 
+                    error: `Không đủ hàng cho sản phẩm ${item.name}${item.size ? ` (Size ${item.size})` : ''}` 
+                });
             }
         }
 
@@ -294,11 +342,11 @@ router.post('/orders', async (req, res) => {
 
         const orderId = orderResult.insertId;
 
-        // Thêm chi tiết đơn hàng (KHÔNG giảm kho ở đây)
+        // Thêm chi tiết đơn hàng (bao gồm variant_id và color, KHÔNG giảm kho ở đây)
         for (const item of cartItems) {
             await connection.query(
-                'INSERT INTO order_items (order_id, product_id, quantity, price, size) VALUES (?, ?, ?, ?, ?)',
-                [orderId, item.product_id, item.quantity, item.price, item.size || '42']
+                'INSERT INTO order_items (order_id, product_id, variant_id, color, quantity, price) VALUES (?, ?, ?, ?, ?, ?)',
+                [orderId, item.product_id, item.variant_id, item.color, item.quantity, item.price]
             );
         }
 
@@ -351,9 +399,16 @@ router.get('/orders/:id', async (req, res) => {
         }
 
         const [items] = await pool.query(`
-            SELECT oi.*, p.name, p.image
+            SELECT 
+                oi.*, 
+                p.name, 
+                p.image,
+                pv.size,
+                pv.color,
+                pv.color_code
             FROM order_items oi
             LEFT JOIN products p ON oi.product_id = p.id
+            LEFT JOIN product_variants pv ON oi.variant_id = pv.id
             WHERE oi.order_id = ?
         `, [req.params.id]);
 
@@ -445,6 +500,129 @@ router.get('/reviews', async (req, res) => {
     } catch (error) {
         console.error('Get reviews error:', error);
         res.status(500).json({ error: 'Lỗi lấy đánh giá' });
+    }
+});
+
+// ============ THÔNG BÁO LIÊN HỆ ============
+
+// GET /api/customer/contact-replies - Lấy các phản hồi từ admin
+router.get('/contact-replies', async (req, res) => {
+    try {
+        // Get customer info
+        const [customers] = await pool.query(
+            'SELECT email FROM customers WHERE user_id = ?',
+            [req.user.userId]
+        );
+
+        if (customers.length === 0) {
+            return res.json([]);
+        }
+
+        const customerEmail = customers[0].email;
+
+        // Get contacts with admin replies (chỉ lấy chưa đọc)
+        const [contacts] = await pool.query(`
+            SELECT id, subject, message, admin_reply, reply_date, created_at, status, is_read
+            FROM contacts
+            WHERE email = ? AND admin_reply IS NOT NULL AND is_read = FALSE
+            ORDER BY reply_date DESC
+        `, [customerEmail]);
+
+        res.json(contacts);
+    } catch (error) {
+        console.error('Get contact replies error:', error);
+        res.status(500).json({ error: 'Lỗi lấy thông báo' });
+    }
+});
+
+// GET /api/customer/contact-history - Lấy lịch sử phản hồi đã đọc
+router.get('/contact-history', async (req, res) => {
+    try {
+        // Get customer info
+        const [customers] = await pool.query(
+            'SELECT email FROM customers WHERE user_id = ?',
+            [req.user.userId]
+        );
+
+        if (customers.length === 0) {
+            return res.json([]);
+        }
+
+        const customerEmail = customers[0].email;
+
+        // Get contacts with admin replies that are read
+        const [contacts] = await pool.query(`
+            SELECT id, subject, message, admin_reply, reply_date, created_at, status, is_read
+            FROM contacts
+            WHERE email = ? AND admin_reply IS NOT NULL AND is_read = TRUE
+            ORDER BY reply_date DESC
+        `, [customerEmail]);
+
+        res.json(contacts);
+    } catch (error) {
+        console.error('Get contact history error:', error);
+        res.status(500).json({ error: 'Lỗi lấy lịch sử' });
+    }
+});
+
+// GET /api/customer/unread-replies-count - Đếm số phản hồi chưa đọc
+router.get('/unread-replies-count', async (req, res) => {
+    try {
+        // Get customer info
+        const [customers] = await pool.query(
+            'SELECT email FROM customers WHERE user_id = ?',
+            [req.user.userId]
+        );
+
+        if (customers.length === 0) {
+            return res.json({ count: 0 });
+        }
+
+        const customerEmail = customers[0].email;
+
+        // Count contacts with admin replies that are unread
+        const [result] = await pool.query(`
+            SELECT COUNT(*) as count
+            FROM contacts
+            WHERE email = ? AND admin_reply IS NOT NULL AND is_read = FALSE
+        `, [customerEmail]);
+
+        res.json({ count: result[0].count });
+    } catch (error) {
+        console.error('Get unread replies count error:', error);
+        res.status(500).json({ error: 'Lỗi đếm thông báo' });
+    }
+});
+
+// PUT /api/customer/contact-replies/:id/mark-read - Đánh dấu đã đọc
+router.put('/contact-replies/:id/mark-read', async (req, res) => {
+    try {
+        // Get customer info
+        const [customers] = await pool.query(
+            'SELECT email FROM customers WHERE user_id = ?',
+            [req.user.userId]
+        );
+
+        if (customers.length === 0) {
+            return res.status(404).json({ error: 'Không tìm thấy khách hàng' });
+        }
+
+        const customerEmail = customers[0].email;
+
+        // Update is_read status (chỉ cho phép đánh dấu contact của chính mình)
+        const [result] = await pool.query(
+            'UPDATE contacts SET is_read = TRUE WHERE id = ? AND email = ?',
+            [req.params.id, customerEmail]
+        );
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ error: 'Không tìm thấy thông báo' });
+        }
+
+        res.json({ success: true, message: 'Đã đánh dấu đã đọc' });
+    } catch (error) {
+        console.error('Mark read error:', error);
+        res.status(500).json({ error: 'Lỗi đánh dấu đã đọc' });
     }
 });
 

@@ -61,9 +61,14 @@ function getCategorySlug(categoryId) {
 // 1. GET /api/products - Lấy tất cả sản phẩm
 app.get('/api/products', asyncHandler(async (req, res) => {
     const [rows] = await pool.query(`
-        SELECT p.*, c.name as category_name 
+        SELECT 
+            p.*, 
+            c.name as category_name,
+            COALESCE(SUM(pv.stock), 0) as total_stock
         FROM products p 
         LEFT JOIN categories c ON p.category_id = c.id
+        LEFT JOIN product_variants pv ON p.id = pv.product_id
+        GROUP BY p.id
         ORDER BY p.id
     `);
     
@@ -76,7 +81,7 @@ app.get('/api/products', asyncHandler(async (req, res) => {
         category_name: row.category_name,
         image: row.image,
         description: row.description,
-        stock: row.stock
+        stock: parseInt(row.total_stock) || 0
     }));
     
     res.json(products);
@@ -560,6 +565,30 @@ app.use((err, req, res, next) => {
         message: err.message 
     });
 });
+
+// GET /api/products/:id/variants - Lấy variants của sản phẩm
+app.get('/api/products/:id/variants', asyncHandler(async (req, res) => {
+    const [variants] = await pool.query(`
+        SELECT id, size, color, color_code, stock
+        FROM product_variants
+        WHERE product_id = ?
+        ORDER BY 
+            CASE size
+                WHEN '38' THEN 1
+                WHEN '39' THEN 2
+                WHEN '40' THEN 3
+                WHEN '41' THEN 4
+                WHEN '42' THEN 5
+                WHEN '43' THEN 6
+                WHEN '44' THEN 7
+                WHEN '45' THEN 8
+                ELSE 9
+            END,
+            color
+    `, [req.params.id]);
+
+    res.json(variants);
+}));
 
 // 404 handler
 app.use((req, res) => {

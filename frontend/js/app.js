@@ -4,6 +4,8 @@ let categories = [];
 let cart = [];
 let currentEditId = null;
 let currentUser = null;
+let bannerInterval = null;
+let currentBannerIndex = 0;
 
 // Initialize app
 document.addEventListener('DOMContentLoaded', () => {
@@ -44,6 +46,9 @@ async function checkAuth() {
                         <a href="profile.html" class="btn-login">👤 ${name}</a>
                     `;
                 }
+                
+                // Load notification count
+                loadNotificationCount();
             } else {
                 localStorage.removeItem('userToken');
                 localStorage.removeItem('isAdmin');
@@ -51,6 +56,32 @@ async function checkAuth() {
         } catch (error) {
             console.error('Auth check error:', error);
         }
+    }
+}
+
+// Load notification count
+async function loadNotificationCount() {
+    const token = localStorage.getItem('userToken');
+    if (!token) return;
+    
+    try {
+        const response = await fetch('http://localhost:3001/api/customer/unread-replies-count', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            const badge = document.getElementById('notification-badge');
+            
+            if (data.count > 0) {
+                badge.textContent = data.count;
+                badge.style.display = 'inline';
+            } else {
+                badge.style.display = 'none';
+            }
+        }
+    } catch (error) {
+        console.error('Load notification count error:', error);
     }
 }
 
@@ -134,6 +165,7 @@ async function loadCategories() {
         
         categories = await response.json();
         renderCategoryFilter();
+        initDynamicBanner(); // Khởi tạo banner sau khi load categories
     } catch (error) {
         console.error('Load categories error:', error);
         // Fallback to default categories if API fails
@@ -144,6 +176,7 @@ async function loadCategories() {
             { id: 4, name: 'Giày bóng rổ' }
         ];
         renderCategoryFilter();
+        initDynamicBanner();
     }
 }
 
@@ -174,23 +207,29 @@ function renderProducts(productsToRender) {
         return;
     }
     
-    grid.innerHTML = productsToRender.map(product => `
-        <div class="product-card" onclick="viewProductDetail(${product.id})">
+    grid.innerHTML = productsToRender.map(product => {
+        const isOutOfStock = product.stock === 0;
+        return `
+        <div class="product-card ${isOutOfStock ? 'out-of-stock' : ''}" onclick="${isOutOfStock ? '' : `viewProductDetail(${product.id})`}">
+            ${isOutOfStock ? '<div class="out-of-stock-badge">HẾT HÀNG</div>' : ''}
             <img src="${product.image}" alt="${product.name}" class="product-image" onerror="this.src='https://via.placeholder.com/300x250?text=Adidas'">
             <div class="product-info">
                 <div class="product-category">${getCategoryNameById(product.category_id)}</div>
                 <h3 class="product-name">${product.name}</h3>
                 <p class="product-description">${product.description}</p>
                 <div class="product-price">${formatPrice(product.price)} VNĐ</div>
-                <div class="product-stock">Còn lại: ${product.stock} đôi</div>
+                <div class="product-stock ${isOutOfStock ? 'stock-out' : 'stock-available'}">
+                    ${isOutOfStock ? '❌ Hết hàng' : `✓ Còn lại: ${product.stock} đôi`}
+                </div>
                 <div class="product-actions">
-                    <button class="btn-view-detail" onclick="event.stopPropagation(); viewProductDetail(${product.id})">
-                        Xem chi tiết
+                    <button class="btn-view-detail" onclick="event.stopPropagation(); ${isOutOfStock ? 'alert(\'Sản phẩm này hiện đã hết hàng\')' : `viewProductDetail(${product.id})`}" ${isOutOfStock ? 'disabled' : ''}>
+                        ${isOutOfStock ? 'Hết hàng' : 'Xem chi tiết'}
                     </button>
                 </div>
             </div>
         </div>
-    `).join('');
+        `;
+    }).join('');
 }
 
 // View product detail
@@ -545,3 +584,129 @@ function showSuccess(message) {
         document.getElementById('success-modal').classList.remove('show');
     }, 2000);
 }
+
+// ===== DYNAMIC BANNER FUNCTIONS =====
+
+// Khởi tạo banner động
+async function initDynamicBanner() {
+    if (categories.length === 0) return;
+    
+    try {
+        // Load products để đếm số lượng theo danh mục
+        const response = await fetch('http://localhost:3001/api/products');
+        const allProducts = await response.json();
+        
+        // Tạo banner slides
+        const bannerContainer = document.querySelector('.banner-container');
+        const bannerDots = document.querySelector('.banner-dots');
+        
+        bannerContainer.innerHTML = '';
+        bannerDots.innerHTML = '';
+        
+        categories.forEach((category, index) => {
+            // Đếm số sản phẩm trong danh mục
+            const productCount = allProducts.filter(p => p.category_id === category.id).length;
+            
+            // Tạo slide
+            const slide = document.createElement('div');
+            slide.className = `banner-slide ${index === 0 ? 'active' : ''}`;
+            slide.dataset.category = category.id;
+            slide.innerHTML = `
+                <div class="banner-content">
+                    <div class="banner-text">
+                        <span class="banner-label">DANH MỤC</span>
+                        <h3 class="banner-title">${category.name}</h3>
+                        <p class="banner-description">${category.description || 'Khám phá bộ sưu tập mới nhất'}</p>
+                    </div>
+                    <div class="banner-stats">
+                        <div class="stat-item">
+                            <span class="stat-number">${productCount}</span>
+                            <span class="stat-label">Sản phẩm</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Click vào banner để lọc sản phẩm theo danh mục
+            slide.addEventListener('click', () => {
+                document.getElementById('category-filter').value = category.id;
+                filterProducts();
+                scrollToProducts();
+            });
+            
+            bannerContainer.appendChild(slide);
+            
+            // Tạo dot
+            const dot = document.createElement('div');
+            dot.className = `banner-dot ${index === 0 ? 'active' : ''}`;
+            dot.addEventListener('click', () => goToBannerSlide(index));
+            bannerDots.appendChild(dot);
+        });
+        
+        // Bắt đầu auto slide
+        startBannerAutoSlide();
+        
+    } catch (error) {
+        console.error('Init banner error:', error);
+    }
+}
+
+// Chuyển đến slide cụ thể
+function goToBannerSlide(index) {
+    const slides = document.querySelectorAll('.banner-slide');
+    const dots = document.querySelectorAll('.banner-dot');
+    
+    if (index < 0 || index >= slides.length) return;
+    
+    // Remove active class
+    slides.forEach(slide => {
+        slide.classList.remove('active', 'prev');
+    });
+    dots.forEach(dot => dot.classList.remove('active'));
+    
+    // Add prev class to current slide
+    if (slides[currentBannerIndex]) {
+        slides[currentBannerIndex].classList.add('prev');
+    }
+    
+    // Add active class to new slide
+    slides[index].classList.add('active');
+    dots[index].classList.add('active');
+    
+    currentBannerIndex = index;
+}
+
+// Slide tiếp theo
+function nextBannerSlide() {
+    const slides = document.querySelectorAll('.banner-slide');
+    const nextIndex = (currentBannerIndex + 1) % slides.length;
+    goToBannerSlide(nextIndex);
+}
+
+// Bắt đầu auto slide
+function startBannerAutoSlide() {
+    // Clear existing interval
+    if (bannerInterval) {
+        clearInterval(bannerInterval);
+    }
+    
+    // Start new interval - chuyển slide mỗi 4 giây
+    bannerInterval = setInterval(nextBannerSlide, 4000);
+}
+
+// Dừng auto slide (khi user tương tác)
+function stopBannerAutoSlide() {
+    if (bannerInterval) {
+        clearInterval(bannerInterval);
+        bannerInterval = null;
+    }
+}
+
+// Pause khi hover vào banner
+document.addEventListener('DOMContentLoaded', () => {
+    const bannerContainer = document.querySelector('.banner-container');
+    if (bannerContainer) {
+        bannerContainer.addEventListener('mouseenter', stopBannerAutoSlide);
+        bannerContainer.addEventListener('mouseleave', startBannerAutoSlide);
+    }
+});

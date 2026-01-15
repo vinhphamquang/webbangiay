@@ -201,6 +201,7 @@ async function loadProducts() {
                             <td>${product.category_name || ''}</td>
                             <td>${product.stock}</td>
                             <td>
+                                <button class="btn-secondary" onclick="manageVariants(${product.id}, '${product.name.replace(/'/g, "\\'")}')">Size/Màu</button>
                                 <button class="btn-secondary" onclick="editProduct(${product.id})">Sửa</button>
                                 <button class="btn-danger" onclick="deleteProduct(${product.id})">Xóa</button>
                             </td>
@@ -382,6 +383,15 @@ async function updateOrderStatus(orderId, status) {
         
         alert('Cập nhật trạng thái thành công');
         loadOrders();
+        
+        // Nếu đổi sang completed hoặc từ completed, reload products để cập nhật stock
+        if (status === 'completed') {
+            // Reload products nếu đang ở tab products
+            const productsPage = document.getElementById('products-page');
+            if (productsPage && productsPage.classList.contains('active')) {
+                await loadProducts();
+            }
+        }
     } catch (error) {
         console.error('Update order status error:', error);
         alert('Lỗi cập nhật trạng thái');
@@ -738,6 +748,7 @@ async function loadContacts(status = '') {
                         <th>Số ĐT</th>
                         <th>Chủ đề</th>
                         <th>Trạng thái</th>
+                        <th>Trả lời</th>
                         <th>Ngày gửi</th>
                         <th>Thao tác</th>
                     </tr>
@@ -751,9 +762,12 @@ async function loadContacts(status = '') {
                             <td>${contact.phone || 'N/A'}</td>
                             <td>${contact.subject}</td>
                             <td><span class="status-badge status-${contact.status}">${getContactStatusText(contact.status)}</span></td>
+                            <td style="text-align: center;">
+                                ${contact.admin_reply ? '<span style="color: #4CAF50; font-size: 18px;" title="Đã trả lời">✓</span>' : '<span style="color: #999;" title="Chưa trả lời">-</span>'}
+                            </td>
                             <td>${new Date(contact.created_at).toLocaleString('vi-VN')}</td>
                             <td>
-                                <button class="btn-secondary" onclick="viewContact(${contact.id})">Xem</button>
+                                <button class="btn-secondary" onclick="viewContact(${contact.id})">${contact.admin_reply ? 'Xem' : 'Trả lời'}</button>
                                 <select onchange="updateContactStatus(${contact.id}, this.value)">
                                     <option value="">Đổi trạng thái</option>
                                     <option value="pending">Chờ xử lý</option>
@@ -792,14 +806,66 @@ async function viewContact(contactId) {
                 <hr>
                 <p><strong>Nội dung:</strong></p>
                 <p style="white-space: pre-wrap; background: #f5f5f5; padding: 15px; border-radius: 4px;">${contact.message}</p>
+                
+                ${contact.admin_reply ? `
+                    <hr>
+                    <div style="background: #e8f5e9; padding: 15px; border-radius: 4px; border-left: 4px solid #4CAF50;">
+                        <p><strong>✓ Đã trả lời:</strong></p>
+                        <p style="white-space: pre-wrap; margin: 10px 0;">${contact.admin_reply}</p>
+                        <small style="color: #666;">Ngày trả lời: ${new Date(contact.reply_date).toLocaleString('vi-VN')}</small>
+                    </div>
+                ` : `
+                    <hr>
+                    <form id="replyForm" style="margin-top: 20px;">
+                        <div class="form-group">
+                            <label><strong>Trả lời khách hàng:</strong></label>
+                            <textarea id="replyMessage" rows="5" placeholder="Nhập nội dung trả lời..." required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;"></textarea>
+                        </div>
+                        <button type="submit" class="btn-primary" style="margin-top: 10px;">
+                            📧 Gửi trả lời
+                        </button>
+                    </form>
+                `}
             </div>
         `;
         
         document.getElementById('contactDetail').innerHTML = html;
         document.getElementById('contactModal').classList.add('show');
+        
+        // Add reply form handler if not replied yet
+        if (!contact.admin_reply) {
+            document.getElementById('replyForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                await replyToContact(contactId);
+            });
+        }
     } catch (error) {
         console.error('View contact error:', error);
         alert('Lỗi xem chi tiết liên hệ');
+    }
+}
+
+// Reply to contact
+async function replyToContact(contactId) {
+    const replyMessage = document.getElementById('replyMessage').value.trim();
+    
+    if (!replyMessage) {
+        alert('Vui lòng nhập nội dung trả lời');
+        return;
+    }
+    
+    try {
+        await apiCall(`/admin/contacts/${contactId}/reply`, {
+            method: 'PUT',
+            body: JSON.stringify({ admin_reply: replyMessage })
+        });
+        
+        alert('✓ Đã gửi trả lời thành công!\nKhách hàng sẽ nhận được thông báo.');
+        document.getElementById('contactModal').classList.remove('show');
+        loadContacts();
+    } catch (error) {
+        console.error('Reply contact error:', error);
+        alert('Lỗi gửi trả lời: ' + error.message);
     }
 }
 
@@ -919,7 +985,527 @@ document.querySelectorAll('.close').forEach(closeBtn => {
     });
 });
 
+// ===== REVENUE ANALYTICS =====
+
+// Populate year dropdown
+function populateYearDropdown() {
+    const yearSelect = document.getElementById('revenueYear');
+    const currentYear = new Date().getFullYear();
+    
+    yearSelect.innerHTML = '';
+    for (let year = currentYear; year >= currentYear - 5; year--) {
+        const option = document.createElement('option');
+        option.value = year;
+        option.textContent = `Năm ${year}`;
+        if (year === currentYear) option.selected = true;
+        yearSelect.appendChild(option);
+    }
+}
+
+// Handle period change
+document.getElementById('revenuePeriod').addEventListener('change', (e) => {
+    const monthSelect = document.getElementById('revenueMonth');
+    if (e.target.value === 'week') {
+        monthSelect.style.display = 'block';
+        // Set current month
+        monthSelect.value = new Date().getMonth() + 1;
+    } else {
+        monthSelect.style.display = 'none';
+    }
+});
+
+// Load revenue data
+async function loadRevenue() {
+    const period = document.getElementById('revenuePeriod').value;
+    const year = document.getElementById('revenueYear').value;
+    const month = document.getElementById('revenueMonth').value;
+    
+    try {
+        let endpoint = `/admin/revenue?period=${period}&year=${year}`;
+        if (period === 'week') {
+            endpoint += `&month=${month}`;
+        }
+        
+        const data = await apiCall(endpoint);
+        renderRevenueChart(data);
+    } catch (error) {
+        console.error('Load revenue error:', error);
+        alert('Lỗi tải doanh thu');
+    }
+}
+
+// Render revenue chart
+function renderRevenueChart(data) {
+    const chartDiv = document.getElementById('revenueChart');
+    
+    if (!data.data || data.data.length === 0) {
+        chartDiv.innerHTML = '<p style="text-align: center; padding: 40px; color: #666;">Chưa có dữ liệu doanh thu</p>';
+        return;
+    }
+    
+    let labels = [];
+    let title = '';
+    
+    if (data.period === 'week') {
+        title = `Doanh thu theo tuần - Tháng ${data.month}/${data.year}`;
+        labels = data.data.map(item => `Tuần ${item.week_number}`);
+    } else if (data.period === 'month') {
+        title = `Doanh thu theo tháng - Năm ${data.year}`;
+        labels = data.data.map(item => `Tháng ${item.month_number}`);
+    } else if (data.period === 'year') {
+        title = `Doanh thu theo năm`;
+        labels = data.data.map(item => `${item.year_number}`);
+    }
+    
+    const revenues = data.data.map(item => item.revenue);
+    const maxRevenue = Math.max(...revenues);
+    
+    // Calculate trends
+    const trends = revenues.map((revenue, index) => {
+        if (index === 0) return 0;
+        const prev = revenues[index - 1];
+        if (prev === 0) return revenue > 0 ? 100 : 0;
+        return ((revenue - prev) / prev * 100);
+    });
+    
+    let html = `
+        <div style="background: white; padding: 30px; border: 2px solid #000; border-radius: 8px;">
+            <h4 style="margin-bottom: 30px; text-align: center; font-size: 20px; font-weight: 900; text-transform: uppercase;">${title}</h4>
+            
+            <!-- Visual Bar Chart -->
+            <div style="margin-bottom: 40px; padding: 20px; background: #f8f8f8; border-radius: 8px;">
+                <div style="display: flex; align-items: flex-end; justify-content: space-around; height: 300px; border-bottom: 2px solid #000; padding: 0 10px;">
+    `;
+    
+    // Draw bars
+    data.data.forEach((item, index) => {
+        const percentage = maxRevenue > 0 ? (item.revenue / maxRevenue * 100) : 0;
+        const height = percentage;
+        const label = labels[index];
+        const trend = trends[index];
+        const trendColor = trend > 0 ? '#4CAF50' : trend < 0 ? '#f44336' : '#666';
+        const trendIcon = trend > 0 ? '↑' : trend < 0 ? '↓' : '→';
+        
+        html += `
+            <div style="flex: 1; display: flex; flex-direction: column; align-items: center; margin: 0 5px;">
+                <div style="font-size: 11px; font-weight: bold; margin-bottom: 5px; color: #000;">
+                    ${new Intl.NumberFormat('vi-VN', { notation: 'compact', compactDisplay: 'short' }).format(item.revenue)}đ
+                </div>
+                ${index > 0 ? `
+                    <div style="font-size: 10px; color: ${trendColor}; margin-bottom: 5px;">
+                        ${trendIcon} ${Math.abs(trend).toFixed(1)}%
+                    </div>
+                ` : '<div style="height: 18px;"></div>'}
+                <div style="width: 100%; height: ${height}%; background: linear-gradient(180deg, #000 0%, #333 100%); border-radius: 4px 4px 0 0; min-height: 5px; position: relative; transition: all 0.3s ease; box-shadow: 0 -2px 10px rgba(0,0,0,0.2);">
+                    <div style="position: absolute; top: -25px; left: 50%; transform: translateX(-50%); font-size: 10px; font-weight: bold; white-space: nowrap;">
+                        ${item.order_count} đơn
+                    </div>
+                </div>
+                <div style="margin-top: 8px; font-size: 12px; font-weight: 600; text-align: center; color: #000;">
+                    ${label}
+                </div>
+            </div>
+        `;
+    });
+    
+    html += `
+                </div>
+                <div style="margin-top: 15px; text-align: center; font-size: 12px; color: #666;">
+                    <span style="margin-right: 20px;">📊 Biểu đồ cột doanh thu</span>
+                    <span style="color: #4CAF50;">↑ Tăng</span>
+                    <span style="margin: 0 10px; color: #f44336;">↓ Giảm</span>
+                </div>
+            </div>
+            
+            <!-- Data Table -->
+            <div style="overflow-x: auto;">
+                <table style="width: 100%; border-collapse: collapse;">
+                    <thead>
+                        <tr style="background: #000; color: white;">
+                            <th style="padding: 12px; text-align: left; border: 1px solid #000;">Thời gian</th>
+                            <th style="padding: 12px; text-align: center; border: 1px solid #000;">Số đơn</th>
+                            <th style="padding: 12px; text-align: right; border: 1px solid #000;">Doanh thu</th>
+                            <th style="padding: 12px; text-align: center; border: 1px solid #000;">Xu hướng</th>
+                            <th style="padding: 12px; text-align: center; border: 1px solid #000;">% So với max</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+    `;
+    
+    data.data.forEach((item, index) => {
+        const percentage = maxRevenue > 0 ? (item.revenue / maxRevenue * 100) : 0;
+        const label = labels[index];
+        const trend = trends[index];
+        const trendColor = trend > 0 ? '#4CAF50' : trend < 0 ? '#f44336' : '#666';
+        const trendIcon = trend > 0 ? '↑' : trend < 0 ? '↓' : '→';
+        const trendText = index === 0 ? '-' : `${trendIcon} ${Math.abs(trend).toFixed(1)}%`;
+        
+        html += `
+            <tr style="border-bottom: 1px solid #ddd; ${percentage === 100 ? 'background: #fff9e6;' : ''}">
+                <td style="padding: 12px; border: 1px solid #ddd; font-weight: ${percentage === 100 ? 'bold' : 'normal'};">${label}</td>
+                <td style="padding: 12px; text-align: center; border: 1px solid #ddd;">${item.order_count}</td>
+                <td style="padding: 12px; text-align: right; border: 1px solid #ddd; font-weight: bold;">
+                    ${new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(item.revenue)}
+                </td>
+                <td style="padding: 12px; text-align: center; border: 1px solid #ddd; color: ${trendColor}; font-weight: bold;">
+                    ${trendText}
+                </td>
+                <td style="padding: 12px; text-align: center; border: 1px solid #ddd;">
+                    <div style="background: #f0f0f0; height: 24px; border-radius: 12px; overflow: hidden; position: relative;">
+                        <div style="background: linear-gradient(90deg, #000 0%, #333 100%); height: 100%; width: ${percentage}%; transition: width 0.5s ease;"></div>
+                        <span style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: 11px; font-weight: bold; color: ${percentage > 50 ? 'white' : '#000'};">
+                            ${percentage.toFixed(0)}%
+                        </span>
+                    </div>
+                </td>
+            </tr>
+        `;
+    });
+    
+    const totalRevenue = revenues.reduce((sum, val) => sum + val, 0);
+    const totalOrders = data.data.reduce((sum, item) => sum + item.order_count, 0);
+    const avgRevenue = totalRevenue / data.data.length;
+    
+    html += `
+                    </tbody>
+                    <tfoot>
+                        <tr style="background: #000; color: white; font-weight: bold;">
+                            <td style="padding: 12px; border: 1px solid #000;">TỔNG CỘNG</td>
+                            <td style="padding: 12px; text-align: center; border: 1px solid #000;">${totalOrders}</td>
+                            <td style="padding: 12px; text-align: right; border: 1px solid #000;">
+                                ${new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(totalRevenue)}
+                            </td>
+                            <td colspan="2" style="padding: 12px; text-align: right; border: 1px solid #000;">
+                                Trung bình: ${new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(avgRevenue)}
+                            </td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+            
+            <!-- Summary Stats -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 20px;">
+                <div style="background: #f8f8f8; padding: 15px; border-radius: 4px; border-left: 4px solid #000;">
+                    <div style="font-size: 12px; color: #666; margin-bottom: 5px;">Cao nhất</div>
+                    <div style="font-size: 18px; font-weight: bold;">
+                        ${new Intl.NumberFormat('vi-VN', { notation: 'compact', compactDisplay: 'short' }).format(maxRevenue)}đ
+                    </div>
+                </div>
+                <div style="background: #f8f8f8; padding: 15px; border-radius: 4px; border-left: 4px solid #666;">
+                    <div style="font-size: 12px; color: #666; margin-bottom: 5px;">Thấp nhất</div>
+                    <div style="font-size: 18px; font-weight: bold;">
+                        ${new Intl.NumberFormat('vi-VN', { notation: 'compact', compactDisplay: 'short' }).format(Math.min(...revenues))}đ
+                    </div>
+                </div>
+                <div style="background: #f8f8f8; padding: 15px; border-radius: 4px; border-left: 4px solid #4CAF50;">
+                    <div style="font-size: 12px; color: #666; margin-bottom: 5px;">Trung bình</div>
+                    <div style="font-size: 18px; font-weight: bold;">
+                        ${new Intl.NumberFormat('vi-VN', { notation: 'compact', compactDisplay: 'short' }).format(avgRevenue)}đ
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    chartDiv.innerHTML = html;
+}
+
+// Load revenue button
+document.getElementById('loadRevenueBtn').addEventListener('click', loadRevenue);
+
+// ============ QUẢN LÝ VARIANTS (SIZE & MÀU) ============
+
+// Manage variants modal
+async function manageVariants(productId, productName) {
+    try {
+        const variants = await apiCall(`/admin/products/${productId}/variants`);
+        
+        const modal = document.createElement('div');
+        modal.id = 'variantsModal';
+        modal.className = 'modal show';
+        modal.innerHTML = `
+            <div class="modal-content" style="max-width: 900px;">
+                <span class="close">&times;</span>
+                <h2>Quản lý Size & Màu: ${productName}</h2>
+                
+                <div style="margin-bottom: 20px;">
+                    <button class="btn-primary" onclick="showAddVariantForm(${productId})">+ Thêm Size/Màu</button>
+                </div>
+                
+                <div id="variantsList">
+                    ${renderVariantsTable(variants, productId)}
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        modal.querySelector('.close').addEventListener('click', () => {
+            modal.remove();
+        });
+        
+    } catch (error) {
+        console.error('Manage variants error:', error);
+        alert('Lỗi: ' + error.message);
+    }
+}
+
+function renderVariantsTable(variants, productId) {
+    if (variants.length === 0) {
+        return '<p style="text-align: center; padding: 40px; color: #666;">Chưa có variants. Hãy thêm size và màu cho sản phẩm.</p>';
+    }
+    
+    return `
+        <table>
+            <thead>
+                <tr>
+                    <th>Size</th>
+                    <th>Màu</th>
+                    <th>Mã màu</th>
+                    <th>Tồn kho</th>
+                    <th>Thao tác</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${variants.map(v => `
+                    <tr>
+                        <td><strong>${v.size}</strong></td>
+                        <td>
+                            <span style="display: inline-flex; align-items: center; gap: 8px;">
+                                <span style="display: inline-block; width: 20px; height: 20px; border-radius: 50%; background: ${v.color_code}; border: 1px solid #ddd;"></span>
+                                ${v.color}
+                            </span>
+                        </td>
+                        <td><code>${v.color_code}</code></td>
+                        <td>
+                            <span style="color: ${v.stock > 10 ? '#4CAF50' : v.stock > 0 ? '#FF9800' : '#f44336'}; font-weight: bold;">
+                                ${v.stock}
+                            </span>
+                        </td>
+                        <td>
+                            <button class="btn-secondary" onclick="editVariant(${productId}, ${v.id})">Sửa</button>
+                            <button class="btn-danger" onclick="deleteVariant(${productId}, ${v.id})">Xóa</button>
+                        </td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+    `;
+}
+
+// Show add variant form
+function showAddVariantForm(productId) {
+    const modal = document.createElement('div');
+    modal.id = 'variantFormModal';
+    modal.className = 'modal show';
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width: 500px;">
+            <span class="close">&times;</span>
+            <h2>Thêm Size/Màu mới</h2>
+            <form id="variantForm">
+                <div class="form-group">
+                    <label>Size *</label>
+                    <select id="variantSize" required>
+                        <option value="">Chọn size</option>
+                        <option value="38">38</option>
+                        <option value="39">39</option>
+                        <option value="40">40</option>
+                        <option value="41">41</option>
+                        <option value="42">42</option>
+                        <option value="43">43</option>
+                        <option value="44">44</option>
+                        <option value="45">45</option>
+                        <option value="46">46</option>
+                        <option value="47">47</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Màu sắc *</label>
+                    <input type="text" id="variantColor" required placeholder="VD: Đen, Trắng, Xanh dương">
+                </div>
+                <div class="form-group">
+                    <label>Mã màu *</label>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <input type="color" id="variantColorPicker" value="#000000" style="width: 60px; height: 40px; border: none; cursor: pointer;">
+                        <input type="text" id="variantColorCode" value="#000000" required pattern="^#[0-9A-Fa-f]{6}$" placeholder="#000000" style="flex: 1;">
+                    </div>
+                    <small style="color: #666;">Chọn màu hoặc nhập mã hex</small>
+                </div>
+                <div class="form-group">
+                    <label>Số lượng *</label>
+                    <input type="number" id="variantStock" required min="0" value="0">
+                </div>
+                <button type="submit" class="btn-primary">Thêm</button>
+            </form>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Sync color picker and code input
+    const picker = document.getElementById('variantColorPicker');
+    const codeInput = document.getElementById('variantColorCode');
+    
+    picker.addEventListener('input', (e) => {
+        codeInput.value = e.target.value.toUpperCase();
+    });
+    
+    codeInput.addEventListener('input', (e) => {
+        if (/^#[0-9A-Fa-f]{6}$/.test(e.target.value)) {
+            picker.value = e.target.value;
+        }
+    });
+    
+    modal.querySelector('.close').addEventListener('click', () => {
+        modal.remove();
+    });
+    
+    document.getElementById('variantForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        await saveVariant(productId);
+        modal.remove();
+    });
+}
+
+// Save variant
+async function saveVariant(productId, variantId = null) {
+    const size = document.getElementById('variantSize').value;
+    const color = document.getElementById('variantColor').value;
+    const color_code = document.getElementById('variantColorCode').value;
+    const stock = document.getElementById('variantStock').value;
+    
+    try {
+        if (variantId) {
+            await apiCall(`/admin/products/${productId}/variants/${variantId}`, {
+                method: 'PUT',
+                body: JSON.stringify({ size, color, color_code, stock })
+            });
+            alert('Cập nhật variant thành công');
+        } else {
+            await apiCall(`/admin/products/${productId}/variants`, {
+                method: 'POST',
+                body: JSON.stringify({ size, color, color_code, stock })
+            });
+            alert('Thêm variant thành công');
+        }
+        
+        // Reload variants list
+        const variants = await apiCall(`/admin/products/${productId}/variants`);
+        document.getElementById('variantsList').innerHTML = renderVariantsTable(variants, productId);
+        
+    } catch (error) {
+        console.error('Save variant error:', error);
+        alert('Lỗi: ' + error.message);
+    }
+}
+
+// Edit variant
+async function editVariant(productId, variantId) {
+    try {
+        const variants = await apiCall(`/admin/products/${productId}/variants`);
+        const variant = variants.find(v => v.id === variantId);
+        
+        if (!variant) {
+            alert('Không tìm thấy variant');
+            return;
+        }
+        
+        const modal = document.createElement('div');
+        modal.id = 'variantFormModal';
+        modal.className = 'modal show';
+        modal.innerHTML = `
+            <div class="modal-content" style="max-width: 500px;">
+                <span class="close">&times;</span>
+                <h2>Sửa Size/Màu</h2>
+                <form id="variantForm">
+                    <div class="form-group">
+                        <label>Size *</label>
+                        <select id="variantSize" required>
+                            <option value="">Chọn size</option>
+                            ${['38','39','40','41','42','43','44','45','46','47'].map(s => 
+                                `<option value="${s}" ${s === variant.size ? 'selected' : ''}>${s}</option>`
+                            ).join('')}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Màu sắc *</label>
+                        <input type="text" id="variantColor" required value="${variant.color}">
+                    </div>
+                    <div class="form-group">
+                        <label>Mã màu *</label>
+                        <div style="display: flex; gap: 10px; align-items: center;">
+                            <input type="color" id="variantColorPicker" value="${variant.color_code}" style="width: 60px; height: 40px; border: none; cursor: pointer;">
+                            <input type="text" id="variantColorCode" value="${variant.color_code}" required pattern="^#[0-9A-Fa-f]{6}$" style="flex: 1;">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Số lượng *</label>
+                        <input type="number" id="variantStock" required min="0" value="${variant.stock}">
+                    </div>
+                    <button type="submit" class="btn-primary">Cập nhật</button>
+                </form>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        // Sync color picker and code input
+        const picker = document.getElementById('variantColorPicker');
+        const codeInput = document.getElementById('variantColorCode');
+        
+        picker.addEventListener('input', (e) => {
+            codeInput.value = e.target.value.toUpperCase();
+        });
+        
+        codeInput.addEventListener('input', (e) => {
+            if (/^#[0-9A-Fa-f]{6}$/.test(e.target.value)) {
+                picker.value = e.target.value;
+            }
+        });
+        
+        modal.querySelector('.close').addEventListener('click', () => {
+            modal.remove();
+        });
+        
+        document.getElementById('variantForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await saveVariant(productId, variantId);
+            modal.remove();
+        });
+        
+    } catch (error) {
+        console.error('Edit variant error:', error);
+        alert('Lỗi: ' + error.message);
+    }
+}
+
+// Delete variant
+async function deleteVariant(productId, variantId) {
+    if (!confirm('Bạn có chắc muốn xóa variant này?')) return;
+    
+    try {
+        await apiCall(`/admin/products/${productId}/variants/${variantId}`, {
+            method: 'DELETE'
+        });
+        
+        alert('Xóa variant thành công');
+        
+        // Reload variants list
+        const variants = await apiCall(`/admin/products/${productId}/variants`);
+        document.getElementById('variantsList').innerHTML = renderVariantsTable(variants, productId);
+        
+    } catch (error) {
+        console.error('Delete variant error:', error);
+        alert('Lỗi: ' + error.message);
+    }
+}
+
 // Initialize
 checkAuth().then(() => {
     loadDashboard();
+    populateYearDropdown();
+    // Set current month for week view
+    document.getElementById('revenueMonth').value = new Date().getMonth() + 1;
+    // Load default revenue (current year by month)
+    loadRevenue();
 });
